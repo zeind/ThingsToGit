@@ -1,0 +1,1510 @@
+CREATE OR REPLACE PACKAGE HD_SETUP_PKG AS
+  -- Release : 3.9
+  -- Author  : B.Hobeika 
+  -- Updated : Feb 7,2018
+  -- Purpose : UPDATEDEPTCATALOG: Added 1 new flag to UPDATEDEPTCATALOG(ConsignedFlg) and Added trigger overriding on EPP(ENDPOINTPRODUCT_AIU_TRG) for consignmentflg
+  
+  -- Release : 3.8
+  -- Author  : B.Hobeika 
+  -- Updated : Jan 17, 2018
+  -- Purpose : UPDATEDEPTCATALOG: Modified behaviour of insertion and updates for IMPLANTFLG,IMPLANTREGFLAG AND BIOLOGICALIMPLANT
+  --           UPDATEDEPTENTERPRISECATALOG: Added 3 new flags to be used with checks on HPI values IMPLANTFLG,IMPLANTREGFLAG AND BIOLOGICALIMPLANT
+  
+  -- Release : 3.7
+  -- Author  : J.Nassar 
+  -- Updated : Dec 13, 2017
+  -- Purpose : UPDATEDEPTCATALOG: Added support to update EXPIRATIONFLG column in ENDPOINTPRODUCT, added a warning parameter P_WARNINGEXPIRATIONFLG
+  
+  -- Release : 3.6
+  -- Author  : M.Estaytieh 
+  -- Updated : Nov 6, 2017
+  -- Purpose : UpdateDeptEnterpriseCatalog AND UPDATEPRODUCTINVENTORY:Added support to update MMSSUPPLYLOCATIONID
+  
+  -- Release : 3.5
+  -- Author  : B.Hobeika 
+  -- Updated : Oct 26 2017
+  -- Purpose : in procedure UPDATEPRODUCTINVENTORY, when updating a deactivated product to status ACTIVE, setting the RFID flag to matching sent Cabinet flag(Used to be set previously as 'N' statically)
+
+  -- Release : 3.4
+  -- Author  : B.Hobeika 
+  -- Updated : Apr 20 2017
+  -- Purpose : in procedure UPDATEPRODUCTINVENTORY, when adding to product inventory table, setting the RFID flag to matching sent Cabinet
+  
+  -- Release : 3.3
+  -- Author  : B.Hobeika 
+  -- Updated : Apr 6 2017
+  -- Purpose : in procedure UPDATEPRODUCTINVENTORY, when adding to product inventory table, setting the status to ACTIVE
+  
+  -- Release : 3.2
+  -- Author  : J.Faraj 
+  -- Updated : Feb 8, 2017
+  -- Purpose : added P_FREEZEHEMODYNAMICNUMBER to UPDATEDEPTCATALOG. And the rule for it is. If P_FREEZEHEMODYNAMICNUMBER is Y and HDSITEMNUMBER is NOT null, the user cannot change it.
+  --if the users tries to change the HDSITEMNUMBER we will mark the row as an error
+
+  -- Release : 3.1
+  -- Author  : M.Estaytieh 
+  -- Updated : Nov 28, 2016
+  -- Purpose : UpdateDeptEnterpriseCatalog AND UPDATEPRODUCTINVENTORY:Added support to update ORDERINGENDPOINTID
+  
+  -- Release : 3.0
+  -- Author  : M.Estaytieh 
+  -- Updated : Sept 28, 2016
+  -- Purpose : UpdateDeptEnterpriseCatalog :Added support to update GLAccountMajor,GLAccountMinor,HDSITEMNUMBER
+  -- Author  : M.Hamieh
+  -- Updated : Oct 5, 2016
+  -- Purpose : adding new procedure called UPDATEPRODUCTINVENTORY to create inventory records for products using an upload tool from the setup page 
+  -- Updated : Oct 12, 2016
+  -- Purpose : UPDATEPRODUCTINVENTORY :adding new check on mmslocation when checking for enterprise products returns a records that has an mmslocation that is not in the departments catalog, And added an nvl on the inventory level
+  
+  -- Release : 2.9
+  -- Author  : M.Hamieh
+  -- Updated : July 28, 2016
+  -- Purpose : UPDATEDEPTCATALOG :Added support to update AccountingUnit in  UPDATEDEPTCATALOG
+ 
+   -- Release : 2.8
+  -- Author  : J.Faraj
+  -- Updated : June 29, 2016
+  -- Purpose : UPDATEDEPTCATALOG :Added support to update BIOLOGICALIMPLANTFLG in both UPDATEDEPTCATALOG
+ 
+  -- Release : 2.7
+  -- Author  : M.Estaytieh
+  -- Updated : June 15, 2016
+  -- Purpose : UpdateDeptEnterpriseCatalog :Added Status Active condition to the query that gets the interfacedevice that the department is linked to.
+  
+  -- Release : 2.6
+  -- Author  : M.Estaytieh
+  -- Updated : June 06, 2016
+  -- Purpose : UPDATEDEPTCATALOG :Moved the rfid flag empty check to the procedure in order to just check it when the product is not in catalog (fixing bug 26385)
+  
+  -- Release : 2.5
+  -- Author  : M.Estaytieh
+  -- Updated : May 16, 2016
+  -- Purpose : UPDATEDEPTCATALOG :Modifying the procedure to remove the enterprise upload functionality and add the new product identification and support editing existing products
+  --         added the enterprise products editing rules
+  --        UpdateDeptEnterpriseCatalog :The logic in the procedure UPDATEDEPTCATALOG that supports enterprise upload was moved to this procedure: this procedure will only add enterprise products to the catalog
+  
+  -- Release : 2.4
+  -- Author  : M.Estaytieh
+  -- Updated : April 05, 2016
+  -- Purpose : UPDATEDEPTCATALOG :Fixing bug 25909: changing the check on the interface device to only check for itemmasterintegrator
+
+  -- Release : 2.3
+  -- Author  : M.Estaytieh
+  -- Updated : Mar 10, 2015
+  -- Purpose : UPDATEDEPTCATALOG : updated procedure to add charge code support from hospitalproductintegrator and to use the interfacedeviceflag to update the values of mmsorderinguom and emschargenumber- fixing bug 25599
+
+  -- Release : 2.2
+  -- Author  : J.Faraj
+  -- Updated : Oct 19, 2015
+  -- Purpose : Added new attribute MMSOrderingProductUOM to UpdateDeptCatalog
+
+  -- Release : 2.1
+  -- Author  : M.Estaytieh
+  -- Updated : Oct 2, 2015
+  -- Purpose : Updated the procedure UPDATEDEPTCATALOG to validate on the mmslocation for the new upload tool for the enterprise catalog and to add the
+  -- values to the department catalog from the enterprise catalog
+
+  -- Release : 2.0
+  -- Author  : J.Faraj
+  -- Updated : May 4, 2015
+  -- Purpose : Added new attribute ENDPOINTPRODUCTNAME to UpdateDeptCatalog
+
+  -- Release : 1.9
+  -- Author  : J.Faraj
+  -- Updated : March 11, 2015
+  -- Purpose : Added new attribute HDSITEMNUMBER to UpdateDeptCatalog
+
+  -- Release : 1.8
+  -- Author  : M.Estaytieh
+  -- Updated : November 11, 2014
+  -- Purpose : Fixing bug 21135
+
+  -- Release : 1.7
+  -- Author  : M.Estaytieh
+  -- Updated : April 07, 2014
+  -- Purpose : Added model no validation for the UpdateDeptCatalog procedure in order to upload products to the catalog either using upn or model no
+
+  -- Release : 1.6
+  -- Author  : M.Estaytieh
+  -- Updated : February 07, 2014
+  -- Purpose : Added the ordering interval days to the procedure UpdateDeptCatalog
+
+  -- Release : 1.5
+  -- Author  : J.ElHayek
+  -- Updated : January 20, 2014
+  -- Purpose : Dropped the procedure UpdateMobileDeviceMAC from this package and added its business logic to the UpdateMobileDevice procedure in the USERADMIN_PKG
+
+  -- Release : 1.4
+  -- Author  : M.Estaytieh
+  -- Updated : December 06, 2013
+  -- Purpose : Added a new procedure UpdateDeptCatalog to insert the products into catalog from the addproducts upload utility
+
+  -- Release : 1.3
+  -- Author  : M.Estaytieh
+  -- Updated : October 14, 2013
+  -- Purpose : Added a new check on the DeActivateCabinetAlert procedure to only update active alerts
+
+  -- Release : 1.2
+  -- Author  : I.Basma
+  -- Updated : September 27, 2013
+  -- Purpose : Added a new Procedure UpdateMobileDeviceMAC to support a new method for MobileHosp reactivateMHDevice
+
+  -- Release : 1.1
+  -- Author  : M.Estaytieh
+  -- Updated : September 20, 2013
+  -- Purpose : Added A procedure to to update the expiration time of the cabinet alert
+
+  -- Release : 1.0
+  -- Author  : M.Assaad
+  -- Updated : May 13, 2013
+  -- Purpose : Added A procedure to to update status of interface devices
+  
+  Procedure Updateinterfacedevicestatus (P_Interfacedevices_List  In Productslist,
+                                                         P_Status In Interfacedevice.Status%Type);
+
+  Procedure DeActivateCabinetAlert (P_CabinetId  In Cabinet.CabinetId%Type);
+PROCEDURE UPDATEDEPTCATALOG(P_ENDPOINTID            NVARCHAR2,
+                            P_USERID                NVARCHAR2,
+                            P_CATALOG_PRODUCTS_LIST IN CATALOGPRODUCTTRANSACTION_TAB,
+                            P_OVERRIDECUSTOMINTERFACE IN NVARCHAR2,
+                            P_FREEZEHEMODYNAMICNUMBER IN NVARCHAR2,
+                            P_ERRORCODE             OUT NUMBER,
+                            P_ERRORLINES            OUT NVARCHAR2,
+                            P_ERRORLINES2           OUT NVARCHAR2,
+                            P_ERRORLINES3           OUT NVARCHAR2,
+                            P_ERRORLINES4           OUT NVARCHAR2,
+                            P_ERRORLINES5           OUT NVARCHAR2,
+                            P_WARNINGLINES          OUT NVARCHAR2,
+                            P_WARNINGLINES1         OUT NVARCHAR2,
+                            P_WARNINGLINES2         OUT NVARCHAR2,
+                            P_RFIDERRORLINES        OUT NVARCHAR2,
+                            P_WARNINGEXPIRATIONFLG	OUT NVARCHAR2);
+  PROCEDURE UpdateDeptEnterpriseCatalog(P_ENDPOINTID NVARCHAR2, P_USERID NVARCHAR2,P_CATALOG_PRODUCTS_LIST IN CATALOGPRODUCTTRANSACTION_TAB ,P_IDNPRICINGKEY IN NVARCHAR2,
+  P_PRICE_IV IN NVARCHAR2,P_ErrorCode OUT NUMBER,P_ERRORLINES OUT NVARCHAR2);
+  
+      PROCEDURE UPDATEPRODUCTINVENTORY(P_ENDPOINTID IN NVARCHAR2,
+                            P_USERID IN NVARCHAR2,
+                            P_CABINETPRODUCTINVENTORY_LST IN CABINETPRODUCTINVENTORY_TAB,
+                            P_OVERWRITEINV IN NVARCHAR2,
+                            P_IDNPRICINGKEY IN NVARCHAR2,
+                            P_PRICE_IV IN NVARCHAR2,
+                            P_ERRORPRODUCTINFO OUT NVARCHAR2,
+                            P_ERRORSPECIFYLOCATION OUT NVARCHAR2,
+                            P_ERRORLOCATION OUT NVARCHAR2,
+                            P_ERRORNULLLOCATION OUT NVARCHAR2,
+                            P_ERRORHPI OUT NVARCHAR2,
+                            P_PRODUCTEXISTS OUT NVARCHAR2,
+                            P_PRODUCTNOTFOUND OUT NVARCHAR2,
+                            P_CABINETNOTFOUND OUT NVARCHAR2,
+                            P_ERRORCODE OUT NUMBER);
+
+ END;
+/
+create or replace PACKAGE BODY Hd_Setup_Pkg Is
+  Procedure Updateinterfacedevicestatus (P_Interfacedevices_List  In Productslist,
+                                                         P_Status    In Interfacedevice.Status%Type) AS
+  BEGIN
+    IF P_Interfacedevices_List IS NOT NULL THEN
+      Update Interfacedevice I
+      Set I.Status = P_Status
+      WHERE I.Interfacedeviceid IN (SELECT column_value FROM TABLE(Gen_Products(P_Interfacedevices_List)));
+    END IF;
+  End;
+
+  PROCEDURE DeActivateCabinetAlert (P_CabinetId  In Cabinet.CabinetId%Type)
+  IS
+  V_CabinetType NVARCHAR2 (10);
+  BEGIN
+
+    SELECT CabinetType
+    INTO V_CabinetType
+    FROM CABINET WHERE CABINETID = P_CabinetId;
+
+    IF V_CabinetType = 'Hosp' OR V_CabinetType = 'POS' THEN
+      UPDATE CabinetAlert
+      SET ALERTEXPIRATIONTIME = Sysdate,LastUpdatedDate = Sysdate
+      WHERE CabinetId = P_CabinetId And AlertType = 'Error'
+      AND (ALERTEXPIRATIONTIME IS NULL OR ALERTEXPIRATIONTIME > Sysdate);
+      Commit;
+    END IF;
+  END;
+
+PROCEDURE UPDATEDEPTCATALOG(P_ENDPOINTID            NVARCHAR2,
+                            P_USERID                NVARCHAR2,
+                            P_CATALOG_PRODUCTS_LIST IN CATALOGPRODUCTTRANSACTION_TAB,
+                            P_OVERRIDECUSTOMINTERFACE IN NVARCHAR2,
+                            P_FREEZEHEMODYNAMICNUMBER IN NVARCHAR2,
+                            P_ERRORCODE             OUT NUMBER,
+                            P_ERRORLINES            OUT NVARCHAR2,
+                            P_ERRORLINES2           OUT NVARCHAR2,
+                            P_ERRORLINES3           OUT NVARCHAR2,
+                            P_ERRORLINES4           OUT NVARCHAR2,
+                            P_ERRORLINES5           OUT NVARCHAR2,
+                            P_WARNINGLINES          OUT NVARCHAR2,
+                            P_WARNINGLINES1         OUT NVARCHAR2,
+                            P_WARNINGLINES2         OUT NVARCHAR2,
+                            P_RFIDERRORLINES        OUT NVARCHAR2,
+                            P_WARNINGEXPIRATIONFLG	OUT NVARCHAR2) AS
+  V_PRODUCTID             NVARCHAR2(20);
+  V_STATUS                NVARCHAR2(20);
+  V_PRODGROUPSTATUS       NVARCHAR2(20);
+  ERRORMESSAGE            NVARCHAR2(1024);
+  V_MFRID                 NVARCHAR2(10);
+  V_DIVISIONID            NVARCHAR2(10);
+  V_PRODUCTGROUPID        NVARCHAR2(10);
+  V_PRODUCTCNT            NUMBER;
+  V_WMORDERINGPRODUCTID   NVARCHAR2(20);
+  V_WMDISTRIBUTORID       NVARCHAR2(10);
+  V_DEVICEID              NVARCHAR2(10);
+  V_ENCLOSEDQTY            NUMBER;
+  V_MMSLOCATIONID         NVARCHAR2(20); 
+  V_HASENTERPRISECATEGORY  NVARCHAR2(1);
+  V_HASIMPLANT  NVARCHAR2(1);
+  V_HASORDERINGUOM  NVARCHAR2(1);
+  V_HASCHARGECODE  NVARCHAR2(1);
+  V_HASCATEGORYMANDATORY  NVARCHAR2(1);
+  V_HASCOSTMANDATORY  NVARCHAR2(1);
+  V_CATEGORYCNT            NUMBER;
+  V_ITEMNUMCNT            NUMBER;
+  V_MMSITEMNUMBER NVARCHAR2(100);
+  V_LINEERRORCODE            NUMBER;
+  V_HDSITEMNUMBER NVARCHAR2(50);
+  V_EXPIRATIONFLG NVARCHAR2(1); 
+  V_ACTIVEBINSETCNT NUMBER;
+  V_HASBIOLOGICALIMPLANT NVARCHAR2(1);
+BEGIN
+    V_HASCHARGECODE  := 'N';
+    V_HASENTERPRISECATEGORY := 'N';
+    V_HASIMPLANT := 'N';
+    V_HASBIOLOGICALIMPLANT := 'N';
+    V_HASORDERINGUOM := 'N';
+    V_HASCATEGORYMANDATORY := 'N';
+    V_HASCOSTMANDATORY := 'N';
+    P_ERRORCODE      := 0;
+
+  FOR I IN (SELECT *  FROM TABLE(GEN_CATALOGPRODUCTS(P_CATALOG_PRODUCTS_LIST))) LOOP
+    
+    V_LINEERRORCODE      := 0;
+    V_CATEGORYCNT    := 0;
+    V_ITEMNUMCNT     := 0;
+    V_PRODUCTCNT     :=0;
+    V_WMORDERINGPRODUCTID := NULL;
+	V_ACTIVEBINSETCNT := 0;
+		
+    IF I.UPN IS NOT NULL THEN
+      BEGIN
+        SELECT PU.PRODUCTID,P.ENCLOSEDQty
+          INTO V_PRODUCTID,V_ENCLOSEDQTY
+          FROM PRODUCTUPN PU
+          INNER JOIN PRODUCT P ON PU.PRODUCTID = P.PRODUCTID
+         WHERE PU.UPN = I.UPN;
+      EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+          V_PRODUCTID := NULL;
+          P_ERRORCODE := 1;
+          V_LINEERRORCODE := 1;
+          IF P_ERRORLINES IS NULL THEN
+            P_ERRORLINES := I.ROWNO;
+          ELSE
+            P_ERRORLINES := P_ERRORLINES || ',' || I.ROWNO;
+          END IF;
+      END;
+    ELSE
+      SELECT COUNT(1)
+        INTO V_PRODUCTCNT
+        FROM PRODUCT P
+       INNER JOIN MANUFACTURER M  ON P.MFRID = M.MFRID
+       WHERE P.MFRPRODUCTID = I.MODELNO
+         AND UPPER(M.MFRNAME) = UPPER(I.MFRNAME)
+         AND P.ENCLOSEDQTY = I.ENCLOSEDQTY;
+         
+      IF V_PRODUCTCNT = 0 THEN
+        P_ERRORCODE := 2;
+        V_LINEERRORCODE := 2;
+        IF P_ERRORLINES IS NULL THEN
+          P_ERRORLINES := I.ROWNO;
+        ELSE
+          P_ERRORLINES := P_ERRORLINES || ',' || I.ROWNO;
+        END IF;
+        --P_ERRORLINES := 'MFR MODEL DOES NOT EXIST';
+      ELSE
+        IF V_PRODUCTCNT > 1 THEN
+          P_ERRORCODE := 2;
+          V_LINEERRORCODE := 2;
+          IF P_ERRORLINES2 IS NULL THEN
+            P_ERRORLINES2 := I.ROWNO;
+          ELSE
+            P_ERRORLINES2 := P_ERRORLINES2 || ',' || I.ROWNO;
+          END IF;
+        END IF;
+        --P_ERRORLINES :='MORE than one product found';
+      END IF;
+     END IF;
+     
+     IF V_PRODUCTCNT = 1 AND V_LINEERRORCODE = 0 THEN
+      V_ENCLOSEDQTY := I.ENCLOSEDQTY;
+        BEGIN
+          SELECT P.PRODUCTID
+            INTO V_PRODUCTID
+            FROM PRODUCT P
+           INNER JOIN MANUFACTURER M
+              ON P.MFRID = M.MFRID
+           WHERE P.MFRPRODUCTID = I.MODELNO
+             AND UPPER(M.MFRNAME) = UPPER(I.MFRNAME)
+             AND P.ENCLOSEDQTY = I.ENCLOSEDQTY;
+        END;
+      END IF;
+     IF V_LINEERRORCODE = 0 THEN
+
+      BEGIN
+    --if the orderingenclosedqty was set, we fill the V_WMORDERINGPRODUCTID. If after checking the UPN, the tracking product enclosedqty turns out to be greater than 1 we need to set the orderingproductid to be equal to the tracking productid 
+         IF I.ORDERPRODENCLOSEDQTY IS NOT NULL THEN
+            IF  (I.ORDERPRODENCLOSEDQTY = V_ENCLOSEDQTY OR (I.ORDERPRODENCLOSEDQTY = 1 AND V_ENCLOSEDQTY > 1) ) THEN
+              V_WMORDERINGPRODUCTID := V_PRODUCTID;
+            ELSE
+              SELECT PRODUCTID
+                INTO V_WMORDERINGPRODUCTID
+                FROM PRODUCT
+               WHERE ENCLOSEDPRODUCTID = NVL((SELECT ENCLOSEDPRODUCTID FROM PRODUCT P WHERE P.PRODUCTID = V_PRODUCTID),V_PRODUCTID)
+                 AND ENCLOSEDQTY = I.ORDERPRODENCLOSEDQTY;
+            END IF;
+          END IF;
+        EXCEPTION
+          WHEN NO_DATA_FOUND THEN
+            P_ERRORCODE := 2;
+            V_LINEERRORCODE := 2;
+            IF P_ERRORLINES3 IS NULL THEN
+              P_ERRORLINES3 := I.ROWNO;
+            ELSE
+              P_ERRORLINES3 := P_ERRORLINES3 || ',' || I.ROWNO;
+            END IF;
+        END;
+
+        BEGIN
+          IF I.SUPPLIERTYPE = 'Distributor' THEN
+            SELECT DISTRIBUTORID
+            INTO V_WMDISTRIBUTORID
+            FROM DISTRIBUTOR
+            WHERE DISTRIBUTORID = I.DISTRIBUTORID;
+          END IF;
+        EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+          P_ERRORCODE      := 2;
+          V_LINEERRORCODE := 2;
+          IF P_ERRORLINES4 IS NULL THEN
+            P_ERRORLINES4  := I.ROWNO;
+          ELSE
+            P_ERRORLINES4 := P_ERRORLINES4 || ',' || I.ROWNO;
+          END IF;
+        END;
+
+        BEGIN
+            SELECT IDE.INTERFACEDEVICEID INTO V_DEVICEID
+              FROM INTERFACEDEVICEENDPOINT IDE
+              INNER JOIN INTERFACEDEVICE I on IDE.INTERFACEDEVICEID = I.INTERFACEDEVICEID
+              WHERE IDE.ENDPOINTID = P_ENDPOINTID
+              AND I.INTERFACEDEVICETYPE = 'ItemMasterIntegrator'
+			  AND I.STATUS = 'ACTIVE';
+        
+            IF V_DEVICEID IS NOT NULL THEN
+              SELECT DECODE(BITAND(IND.INTERFACEDEVICEFLAG, 1),1,'Y','N') AS HASENTERPRISECATEGORY,
+              DECODE(BITAND(IND.INTERFACEDEVICEFLAG, 2),2,'Y','N') AS HASIMPLANT,
+              DECODE(BITAND(IND.INTERFACEDEVICEFLAG, 4),4,'Y','N') AS HASORDERINGUOM,
+              DECODE(BITAND(IND.INTERFACEDEVICEFLAG, 8),8,'Y','N') AS HASCHARGECODE,
+              DECODE(BITAND(IND.INTERFACEDEVICEFLAG, 32),32,'Y','N') AS HASCATEGORYMANDATORY,
+              DECODE(BITAND(IND.INTERFACEDEVICEFLAG, 64),64,'Y','N') AS HASCOSTMANDATORY,
+              DECODE(BITAND(IND.INTERFACEDEVICEFLAG, 2048),2048,'Y','N') AS HASBIOLOGICALIMPLANT
+              INTO V_HASENTERPRISECATEGORY,V_HASIMPLANT,V_HASORDERINGUOM,V_HASCHARGECODE,V_HASCATEGORYMANDATORY,V_HASCOSTMANDATORY,V_HASBIOLOGICALIMPLANT
+              FROM INTERFACEDEVICE IND
+              WHERE IND.INTERFACEDEVICEID = V_DEVICEID;
+            END IF;
+                
+              EXCEPTION
+                WHEN NO_DATA_FOUND THEN
+                  V_DEVICEID  := NULL;
+            END;
+        SELECT P.MFRID, P.DIVISIONID, P.PRODUCTGROUPID
+          INTO V_MFRID, V_DIVISIONID, V_PRODUCTGROUPID
+          FROM PRODUCT P
+         WHERE P.PRODUCTID = V_PRODUCTID;
+         
+        BEGIN
+          SELECT STATUS,MMSLOCATIONID,MMSITEMNUMBER, HDSITEMNUMBER, EXPIRATIONFLG
+            INTO V_STATUS,V_MMSLOCATIONID,V_MMSITEMNUMBER, V_HDSITEMNUMBER, V_EXPIRATIONFLG
+            FROM ENDPOINTPRODUCT
+           WHERE PRODUCTID = V_PRODUCTID
+             AND ENDPOINTID = P_ENDPOINTID;
+        EXCEPTION
+          WHEN NO_DATA_FOUND THEN
+            V_STATUS := NULL;
+        END;
+        
+        IF (V_STATUS IS NULL OR V_STATUS = 'DEACTIVATED') AND V_DEVICEID IS NOT NULL  THEN
+          P_ERRORCODE      := 2;
+          V_LINEERRORCODE := 2;
+          IF P_WARNINGLINES IS NULL THEN
+            P_WARNINGLINES  := I.ROWNO;
+          ELSE
+            P_WARNINGLINES := P_WARNINGLINES || ',' || I.ROWNO;
+          END IF;
+        ELSIF V_STATUS IS NULL THEN
+          IF I.RFIDFLG IS NULL THEN
+            P_ERRORCODE      := 2;
+            V_LINEERRORCODE := 2;
+            IF P_RFIDERRORLINES IS NULL THEN
+              P_RFIDERRORLINES  := I.ROWNO;
+            ELSE
+              P_RFIDERRORLINES := P_RFIDERRORLINES || ',' || I.ROWNO;
+            END IF;
+          ELSE
+          BEGIN
+            BEGIN
+              SELECT STATUS
+                INTO V_PRODGROUPSTATUS
+                FROM ENDPOINTPRODUCTGROUP
+               WHERE ENDPOINTID = P_ENDPOINTID
+                 AND MFRID = V_MFRID
+                 AND DIVISIONID = V_DIVISIONID
+                 AND PRODUCTGROUPID = V_PRODUCTGROUPID;
+            EXCEPTION
+              WHEN NO_DATA_FOUND THEN
+                V_PRODGROUPSTATUS := NULL;
+            END;
+            IF V_PRODGROUPSTATUS = 'DEACTIVATED' THEN
+              BEGIN
+                UPDATE ENDPOINTPRODUCTGROUP
+                   SET CONSIGNEDFLG        = 'N',
+                       CONSIGNEDPARLEVEL   = 0,
+                       METAGROUPFLG        = 'N',
+                       METAGROUPID         = NULL,
+                       METAGROUPNAME       = NULL,
+                       WMCOMMENT           = 'Updated Using dept Add product upload Utility',
+                       STATUS              = 'ACTIVE',
+                       LASTUPDATEDDATE     = SYSDATE,
+                       LASTUPDATEDBY       = P_USERID,
+                       METAGROUPMFRID      = NULL,
+                       METAGROUPDIVISIONID = NULL
+                 WHERE ENDPOINTID = P_ENDPOINTID
+                   AND MFRID = V_MFRID
+                   AND DIVISIONID = V_DIVISIONID
+                   AND PRODUCTGROUPID = V_PRODUCTGROUPID;
+              EXCEPTION
+                WHEN OTHERS THEN
+                  ERRORMESSAGE := SUBSTR(SQLERRM, 0, 1024);
+                  P_ERRORLINES := I.ROWNO;
+                  P_ERRORCODE  := 3;
+                  V_LINEERRORCODE := 3;
+                  EXIT;
+              END;
+            ELSIF V_PRODGROUPSTATUS IS NULL THEN
+              BEGIN
+                INSERT INTO ENDPOINTPRODUCTGROUP
+                  (ENDPOINTID,MFRID,DIVISIONID,PRODUCTGROUPID,CONSIGNEDFLG,CONSIGNEDPARLEVEL,METAGROUPFLG,
+                   METAGROUPID,METAGROUPNAME,WMCOMMENT,STATUS,LASTUPDATEDDATE,LASTUPDATEDBY,METAGROUPMFRID,METAGROUPDIVISIONID)
+                VALUES(P_ENDPOINTID,V_MFRID,V_DIVISIONID,V_PRODUCTGROUPID,'N',0,'N',
+                   NULL,NULL,'Inserted Using dept Add product upload Utility','ACTIVE',SYSDATE,P_USERID,NULL,NULL);
+              EXCEPTION
+                WHEN OTHERS THEN
+                  ERRORMESSAGE := SUBSTR(SQLERRM, 0, 1024);
+                  P_ERRORLINES := I.ROWNO;
+                  P_ERRORCODE  := 3;
+                  V_LINEERRORCODE := 3;
+                  EXIT;
+              END;
+            END IF;
+            SELECT COUNT (MMSITEMNUMBER) INTO V_ITEMNUMCNT FROM ENDPOINTPRODUCT WHERE ENDPOINTID = P_ENDPOINTID AND MMSITEMNUMBER = V_MMSITEMNUMBER AND PRODUCTID <> V_PRODUCTID;
+            IF V_ITEMNUMCNT > 0 THEN
+              P_ERRORCODE  := 2;
+              V_LINEERRORCODE := 2;
+              IF P_WARNINGLINES2 IS NULL THEN
+                  P_WARNINGLINES2  := I.ROWNO;
+                ELSE
+                  P_WARNINGLINES2 := P_WARNINGLINES2 || ',' || I.ROWNO;
+                END IF;
+            END IF;
+			
+            IF I.EXPIRATIONFLG IS NOT NULL THEN
+              P_ERRORCODE := 2;
+              V_LINEERRORCODE := 2;
+              IF P_WARNINGEXPIRATIONFLG IS NULL THEN
+                P_WARNINGEXPIRATIONFLG  := I.ROWNO;
+              ELSE
+                P_WARNINGEXPIRATIONFLG := P_WARNINGEXPIRATIONFLG || ',' || I.ROWNO;
+              END IF;
+            END IF;
+			
+            INSERT INTO ENDPOINTPRODUCT(PRODUCTID, ENDPOINTID, RFIDFLG, ONHOLDFLG, IMPLANTREGISTRATIONFLG, 
+                        MININVENTORYLEVEL, MAXINVENTORYLEVEL, CONSIGNEDPARLEVEL, STANDARDORDERQTY, ORDERINGPRODUCTID, 
+                        SUPPLIERTYPE, MMSITEMNUMBER, EMSCHARGENUMBER, CURRENTCOST, REQUESTINGLOCATION,ACCOUNTINGUNIT,
+                        LASTUPDATEDDATE, LASTUPDATEDBY, WMCOMMENT, STATUS,EMERGENCYPARLEVEL, OPTIONALPARLEVEL, TEMPORARYPARLEVEL, RESTOCKPARLEVEL,
+                        LEADTIME, ORDERINGINTERVALDAYS,HDSITEMNUMBER,ENDPOINTPRODUCTNAME,DISTRIBUTORID,
+                        MMSVENDORID, MMSLOCATIONID,ENDPOINTPRODUCTCATEGORY,IMPLANTFLG,CONSIGNEDFLG,MMSORDERINGPRODUCTUOM,                        
+                        COMMENTS,ENDPOINTPRODUCTMODEL,ENDPOINTORDEREDQTY,IGNORESUGGESTIONSFLG,ORDERREPLACEMENTFLG, BIOLOGICALIMPLANTFLG, EXPIRATIONFLG)
+               VALUES(V_PRODUCTID,P_ENDPOINTID,NVL(I.RFIDFLG,'N'),NVL(I.ONHOLDFLG,'N'),NVL(I.IMPLANTREGISTRATIONFLG,'N'),
+                 NVL(I.MININVENTORYLEVEL,0.0001),NVL(I.MAXINVENTORYLEVEL,0.0001),NVL(I.CONSIGNEDPARLEVEL,0.0001),NVL(I.STANDARDORDERQTY,0),NVL(V_WMORDERINGPRODUCTID, V_PRODUCTID),
+                 NVL(I.SUPPLIERTYPE,'Manufacturer'),I.MMSITEMNUMBER,I.EMSCHARGENUMBER,I.CURRENTCOST,I.REQUESTINGLOCATION, I.ACCOUNTINGUNIT,
+                 SYSDATE,P_USERID,'Inserted Using dept Add product upload Utility','ACTIVE',NVL(I.EMERGENCYPARLEVEL,0.0001),NVL(I.OPTIONALPARLEVEL,0.0001),NVL(I.TEMPORARYPARLEVEL,0.0001),NVL(I.RESTOCKPARLEVEL,0.0001),
+                 NVL(I.LEADTIME,0.0001),NVL(I.ORDERINTERVAL,0.0001),I.HDSITEMNUMBER,I.ENDPOINTPRODUCTNAME,V_WMDISTRIBUTORID,
+                 NULL,NULL,I.ENDPOINTPRODUCTCATEGORY,NVL(I.IMPLANTFLG,'N'),NVL(I.CONSIGNEDFLG,'N'),I.MMSORDERINGPRODUCTUOM,
+                 I.COMMENTS,I.ENDPOINTPRODUCTMODEL,I.ENDPOINTORDEREDQTY,NVL(I.IGNORESUGGESTIONSFLG,'N'),NVL(I.ORDERREPLACEMENTFLG,'N'), NVL(I.BIOLOGICALIMPLANTFLG,'N'), 'N');
+                 
+           --Overriding the EPP trigger(ENDPOINTPRODUCT_AIU_TRG) upon inserting a product to the catalog
+           IF I.CONSIGNEDFLG IS NOT NULL THEN
+            UPDATE ENDPOINTPRODUCT
+            SET 
+              CONSIGNEDFLG = I.CONSIGNEDFLG
+              WHERE PRODUCTID = V_PRODUCTID
+              AND ENDPOINTID = P_ENDPOINTID;
+            END IF;
+          EXCEPTION
+            WHEN OTHERS THEN
+              ERRORMESSAGE := SUBSTR(SQLERRM, 0, 1024);
+              P_ERRORLINES := I.ROWNO;
+              P_ERRORCODE  := 3;
+              V_LINEERRORCODE := 3;
+              EXIT;
+              
+          END;
+        END IF;
+        END IF;
+   IF V_STATUS IS NOT NULL THEN
+     
+    IF V_STATUS = 'ACTIVE' AND V_MMSLOCATIONID IS NULL AND V_DEVICEID IS NOT NULL AND I.ENDPOINTPRODUCTCATEGORY IS NOT NULL THEN
+        SELECT COUNT( DISTINCT PRODUCTCATEGORY) INTO V_CATEGORYCNT
+          FROM HOSPITALPRODUCTINTEGRATOR
+          WHERE INTERFACEDEVICEID = V_DEVICEID
+          AND PRODUCTCATEGORY = I.ENDPOINTPRODUCTCATEGORY;
+    END IF;
+    --in case this is an enterprise dept, and the product is a non-enterprise active product, and the category is mandatory for the device, then the category set by the user for the non-enterprise product should be an existing category in the enterprise
+    IF V_STATUS = 'ACTIVE' AND V_MMSLOCATIONID IS NULL AND V_DEVICEID IS NOT NULL AND V_CATEGORYCNT = 0 AND V_HASCATEGORYMANDATORY = 'Y' THEN
+      P_ERRORCODE      := 2;
+      V_LINEERRORCODE := 2;
+          IF P_ERRORLINES5 IS NULL THEN
+            P_ERRORLINES5  := I.ROWNO;
+          ELSE
+            P_ERRORLINES5 := P_ERRORLINES5 || ',' || I.ROWNO;
+          END IF;
+    ELSE
+          BEGIN
+           IF I.RFIDFLG IS NULL AND V_STATUS = 'DEACTIVATED' THEN
+            P_ERRORCODE      := 2;
+            V_LINEERRORCODE := 2;
+            IF P_RFIDERRORLINES IS NULL THEN
+              P_RFIDERRORLINES  := I.ROWNO;
+            ELSE
+              P_RFIDERRORLINES := P_RFIDERRORLINES || ',' || I.ROWNO;
+            END IF;
+          ELSE
+            SELECT COUNT (MMSITEMNUMBER) INTO V_ITEMNUMCNT FROM ENDPOINTPRODUCT WHERE ENDPOINTID = P_ENDPOINTID AND MMSITEMNUMBER = V_MMSITEMNUMBER AND PRODUCTID <> V_PRODUCTID;
+            IF V_ITEMNUMCNT > 0 THEN
+              P_ERRORCODE  := 2;
+              V_LINEERRORCODE := 2;
+              IF P_WARNINGLINES2 IS NULL THEN
+                  P_WARNINGLINES2  := I.ROWNO;
+                ELSE
+                  P_WARNINGLINES2 := P_WARNINGLINES2 || ',' || I.ROWNO;
+                END IF;
+            END IF;
+			
+			IF I.EXPIRATIONFLG IS NOT NULL THEN
+				SELECT COUNT(BINSETID) INTO V_ACTIVEBINSETCNT 
+				FROM BINSET 
+				WHERE ENDPOINTID = P_ENDPOINTID 
+				AND PRODUCTID = V_PRODUCTID
+				AND STATUS = 'ACTIVE' ;
+				
+				IF V_ACTIVEBINSETCNT = 0 THEN
+					P_ERRORCODE := 2;
+					V_LINEERRORCODE := 2;
+					IF P_WARNINGEXPIRATIONFLG IS NULL THEN
+						P_WARNINGEXPIRATIONFLG  := I.ROWNO;
+					ELSE
+						P_WARNINGEXPIRATIONFLG := P_WARNINGEXPIRATIONFLG || ',' || I.ROWNO;
+					END IF;
+				ELSE
+					V_EXPIRATIONFLG := I.EXPIRATIONFLG;
+				END IF;
+			END IF;
+      
+            UPDATE ENDPOINTPRODUCT
+               SET RFIDFLG                 = NVL(I.RFIDFLG,RFIDFLG),
+                   ONHOLDFLG               = NVL(I.ONHOLDFLG,ONHOLDFLG),
+                   IMPLANTREGISTRATIONFLG  = (CASE WHEN ( (V_HASBIOLOGICALIMPLANT = 'Y' AND BIOLOGICALIMPLANTFLG = 'Y' ) OR(V_HASIMPLANT='Y' AND IMPLANTFLG = 'Y')  AND MMSLOCATIONID IS NOT NULL) THEN IMPLANTREGISTRATIONFLG ELSE NVL(I.IMPLANTREGISTRATIONFLG,IMPLANTREGISTRATIONFLG) END),
+                   MININVENTORYLEVEL       = NVL(I.MININVENTORYLEVEL,MININVENTORYLEVEL) ,
+                   MAXINVENTORYLEVEL       = NVL(I.MAXINVENTORYLEVEL,MAXINVENTORYLEVEL) ,
+                   CONSIGNEDPARLEVEL       = NVL(I.CONSIGNEDPARLEVEL,CONSIGNEDPARLEVEL),
+                   STANDARDORDERQTY        = NVL(I.STANDARDORDERQTY,STANDARDORDERQTY),
+                   ORDERINGPRODUCTID       = NVL(V_WMORDERINGPRODUCTID,ORDERINGPRODUCTID),
+                   SUPPLIERTYPE            = NVL(I.SUPPLIERTYPE,SUPPLIERTYPE),
+                   MMSITEMNUMBER           = (CASE WHEN (P_OVERRIDECUSTOMINTERFACE = 'N' AND MMSLOCATIONID IS NOT NULL) THEN MMSITEMNUMBER ELSE NVL2(I.MMSITEMNUMBER,I.MMSITEMNUMBER,DECODE(BITAND(I.SETFIELDS,16),16,NULL,MMSITEMNUMBER)) END ),
+                   EMSCHARGENUMBER         = (CASE WHEN (P_OVERRIDECUSTOMINTERFACE = 'N' AND V_HASCHARGECODE = 'Y' AND MMSLOCATIONID IS NOT NULL) THEN EMSCHARGENUMBER ELSE NVL2(I.EMSCHARGENUMBER,I.EMSCHARGENUMBER,DECODE(BITAND(I.SETFIELDS,32),32,NULL,EMSCHARGENUMBER)) END ),
+                   CURRENTCOST             = (CASE WHEN (P_OVERRIDECUSTOMINTERFACE = 'N' AND MMSLOCATIONID IS NOT NULL) THEN CURRENTCOST ELSE NVL2(I.CURRENTCOST,I.CURRENTCOST,CURRENTCOST) END ),
+                   REQUESTINGLOCATION      = NVL2(I.REQUESTINGLOCATION,I.REQUESTINGLOCATION,DECODE(BITAND(I.SETFIELDS,128),128,NULL,REQUESTINGLOCATION)),
+                   ACCOUNTINGUNIT          = NVL2(I.ACCOUNTINGUNIT,I.ACCOUNTINGUNIT,DECODE(BITAND(I.SETFIELDS,512),512,NULL,ACCOUNTINGUNIT)),
+                   LASTUPDATEDDATE         = SYSDATE,
+                   LASTUPDATEDBY           = P_USERID,
+                   WMCOMMENT               = 'Updated using dept Add product upload Utility',
+                   STATUS                  = 'ACTIVE',
+                   EMERGENCYPARLEVEL       = NVL(I.EMERGENCYPARLEVEL,EMERGENCYPARLEVEL),
+                   OPTIONALPARLEVEL        = NVL(I.OPTIONALPARLEVEL,OPTIONALPARLEVEL),
+                   TEMPORARYPARLEVEL       = NVL(I.TEMPORARYPARLEVEL,TEMPORARYPARLEVEL),
+                   RESTOCKPARLEVEL         = NVL(I.RESTOCKPARLEVEL,RESTOCKPARLEVEL),
+                   LEADTIME                = NVL(I.LEADTIME,LEADTIME),
+                   ORDERINGINTERVALDAYS    = NVL(I.ORDERINTERVAL,ORDERINGINTERVALDAYS),
+                   HDSITEMNUMBER           = (CASE WHEN (P_FREEZEHEMODYNAMICNUMBER = 'Y' AND HDSITEMNUMBER IS NOT NULL) THEN HDSITEMNUMBER ELSE NVL2(I.HDSITEMNUMBER,I.HDSITEMNUMBER,DECODE(BITAND(I.SETFIELDS,64),64,NULL,HDSITEMNUMBER)) END ),
+                   ENDPOINTPRODUCTNAME     = NVL2(MMSLOCATIONID,ENDPOINTPRODUCTNAME,NVL2(I.ENDPOINTPRODUCTNAME,I.ENDPOINTPRODUCTNAME,DECODE(BITAND(I.SETFIELDS,4),4,NULL,ENDPOINTPRODUCTNAME))),
+                   DISTRIBUTORID           = NVL(V_WMDISTRIBUTORID,DISTRIBUTORID),
+                   ENDPOINTPRODUCTMODEL    = NVL2(I.ENDPOINTPRODUCTMODEL,I.ENDPOINTPRODUCTMODEL,DECODE(BITAND(I.SETFIELDS,2),2,NULL,ENDPOINTPRODUCTMODEL)),
+                   ENDPOINTORDEREDQTY      = NVL(I.ENDPOINTORDEREDQTY,ENDPOINTORDEREDQTY),
+                   ENDPOINTPRODUCTCATEGORY = (CASE WHEN (V_HASENTERPRISECATEGORY = 'Y' AND MMSLOCATIONID IS NOT NULL) THEN ENDPOINTPRODUCTCATEGORY ELSE NVL2(I.ENDPOINTPRODUCTCATEGORY,I.ENDPOINTPRODUCTCATEGORY,DECODE(BITAND(I.SETFIELDS,8),8,NULL,ENDPOINTPRODUCTCATEGORY)) END ),
+                   IMPLANTFLG              = (CASE WHEN ( (V_HASIMPLANT = 'Y' AND MMSLOCATIONID IS NOT NULL) OR (V_HASBIOLOGICALIMPLANT = 'Y' AND MMSLOCATIONID IS NOT NULL AND BIOLOGICALIMPLANTFLG = 'Y') ) THEN IMPLANTFLG ELSE NVL(I.IMPLANTFLG,IMPLANTFLG) END ),
+                   IGNORESUGGESTIONSFLG    = NVL(I.IGNORESUGGESTIONSFLG,IGNORESUGGESTIONSFLG),
+                   ORDERREPLACEMENTFLG     = NVL(I.ORDERREPLACEMENTFLG,ORDERREPLACEMENTFLG),
+                   MMSORDERINGPRODUCTUOM   = (CASE WHEN (V_HASORDERINGUOM = 'Y' AND MMSLOCATIONID IS NOT NULL) THEN MMSORDERINGPRODUCTUOM ELSE NVL2(I.MMSORDERINGPRODUCTUOM,I.MMSORDERINGPRODUCTUOM,DECODE(BITAND(I.SETFIELDS,1),1,NULL,MMSORDERINGPRODUCTUOM)) END ),
+                   COMMENTS                = NVL2(I.COMMENTS,I.COMMENTS,DECODE(BITAND(I.SETFIELDS,256),256,NULL,COMMENTS)),
+                   BIOLOGICALIMPLANTFLG    = (CASE WHEN ( (V_HASBIOLOGICALIMPLANT = 'Y' AND MMSLOCATIONID IS NOT NULL) OR (V_HASIMPLANT = 'Y' AND MMSLOCATIONID IS NOT NULL AND IMPLANTFLG = 'Y') ) THEN BIOLOGICALIMPLANTFLG ELSE NVL(I.BIOLOGICALIMPLANTFLG,BIOLOGICALIMPLANTFLG) END),
+                   EXPIRATIONFLG 		   = NVL(V_EXPIRATIONFLG, EXPIRATIONFLG),
+                   CONSIGNEDFLG = NVL(I.CONSIGNEDFLG,CONSIGNEDFLG)
+                  WHERE PRODUCTID = V_PRODUCTID
+               AND ENDPOINTID = P_ENDPOINTID;
+               
+               --Overriding the EPP trigger(ENDPOINTPRODUCT_AIU_TRG) upon RE-activating a product in the catalog
+               IF V_STATUS = 'DEACTIVATED' AND I.CONSIGNEDFLG IS NOT NULL THEN
+                UPDATE ENDPOINTPRODUCT
+                SET 
+                  CONSIGNEDFLG = I.CONSIGNEDFLG
+                  WHERE PRODUCTID = V_PRODUCTID
+                  AND ENDPOINTID = P_ENDPOINTID;
+               END IF;
+                  
+
+               IF (((P_FREEZEHEMODYNAMICNUMBER = 'Y' AND V_HDSITEMNUMBER IS NOT NULL AND I.HDSITEMNUMBER IS NOT NULL)) OR V_MMSLOCATIONID IS NOT NULL AND (
+                      ( P_OVERRIDECUSTOMINTERFACE = 'N' AND (I.MMSITEMNUMBER IS NOT NULL OR BITAND(I.SETFIELDS,16)=16 )) 
+                   OR (I.ENDPOINTPRODUCTNAME IS NOT NULL OR BITAND(I.SETFIELDS,4)=4 )
+                   OR (V_HASORDERINGUOM = 'Y' AND (I.MMSORDERINGPRODUCTUOM IS NOT NULL OR BITAND(I.SETFIELDS,1)=1 ))
+                   OR (V_HASIMPLANT = 'Y' AND I.IMPLANTFLG IS NOT NULL)
+                   OR (V_HASBIOLOGICALIMPLANT = 'Y' AND I.BIOLOGICALIMPLANTFLG IS NOT NULL)
+                   OR (P_OVERRIDECUSTOMINTERFACE = 'N' AND V_HASCHARGECODE = 'Y' AND  (I.EMSCHARGENUMBER IS NOT NULL OR BITAND(I.SETFIELDS,32)=32 ))
+                   OR (P_OVERRIDECUSTOMINTERFACE = 'N' AND  I.CURRENTCOST IS NOT NULL)
+                   OR (V_HASENTERPRISECATEGORY = 'Y' AND  (I.ENDPOINTPRODUCTCATEGORY IS NOT NULL OR BITAND(I.SETFIELDS,8)=8 )))
+                 )
+                 THEN 
+                   P_ERRORCODE      := 2;
+                   V_LINEERRORCODE := 2;
+                 IF P_WARNINGLINES1 IS NULL THEN
+                  P_WARNINGLINES1  := I.ROWNO;
+                ELSE
+                  P_WARNINGLINES1 := P_WARNINGLINES1 || ',' || I.ROWNO;
+                END IF;
+              END IF;
+           END IF;
+
+          EXCEPTION
+            WHEN OTHERS THEN
+              ERRORMESSAGE := SUBSTR(SQLERRM, 0, 1024);
+              P_ERRORLINES := I.ROWNO;
+              P_ERRORCODE  := 3;
+              V_LINEERRORCODE := 3;
+              EXIT;
+            
+          END;
+        END IF;--ENDS HERE
+        END IF;
+      END IF;
+  END LOOP;
+EXCEPTION
+  WHEN OTHERS THEN
+    P_ERRORCODE := 4;
+END UPDATEDEPTCATALOG;
+
+
+
+PROCEDURE UpdateDeptEnterpriseCatalog(P_ENDPOINTID            NVARCHAR2,
+                                      P_USERID                NVARCHAR2,
+                                      P_CATALOG_PRODUCTS_LIST IN CATALOGPRODUCTTRANSACTION_TAB,
+                                      P_IDNPRICINGKEY IN NVARCHAR2,
+                                      P_PRICE_IV IN NVARCHAR2,
+                                      P_ERRORCODE             OUT NUMBER,
+                                      P_ERRORLINES            OUT NVARCHAR2) IS
+    V_PRODUCTID       NVARCHAR2(20);
+    V_STATUS          NVARCHAR2(20);
+    V_PRODGROUPSTATUS NVARCHAR2(20);
+    ERRORMESSAGE      NVARCHAR2(1024);
+    V_MFRID           NVARCHAR2(10);
+    V_DIVISIONID      NVARCHAR2(10);
+    V_PRODUCTGROUPID  NVARCHAR2(10);
+    V_WMORDERINGPRODUCTID NVARCHAR2(20);
+    V_WMSUPPLIERTYPE NVARCHAR2(20);
+    V_WMDISTRIBUTORID NVARCHAR2(10);
+    V_MMSVENDORID NVARCHAR2(20);
+    V_ITEMDESCRIPTION NVARCHAR2(100);
+    V_PRODUCTCATEGORY NVARCHAR2(100);
+    V_IMPLANTFLG NVARCHAR2(1);
+	V_BIOLOGICALIMPLANTFLG NVARCHAR2(1);
+    V_CONSIGNMENTFLG NVARCHAR2(1);
+    V_ORDERINGPRODUCTCOST NVARCHAR2(100);
+    V_MMSORDERINGPRODUCTUOM NVARCHAR2(2);
+    V_EMSCHARGENUMBER nvarchar2(32);
+    V_HASCHARGECODE  NVARCHAR2(1);
+    V_HASORDERINGUOM  NVARCHAR2(1);
+    V_DEVICEID  NVARCHAR2(10);
+    V_GLACCOUNTMAJOR  NVARCHAR2(10);
+    V_GLACCOUNTMINOR  NVARCHAR2(10);
+    V_HDSITEMNUMBER  NVARCHAR2(50);
+    V_LINEERRORCODE            NUMBER;
+    V_ORDERINGENDPOINTID  NVARCHAR2(20);
+    V_MMSSUPPLYLOCATIONID  NVARCHAR2(20);
+	V_HASIMPLANT  NVARCHAR2(1);
+	V_HASBIOLOGICALIMPLANT NVARCHAR2(1);
+  BEGIN
+
+    P_ERRORCODE := 0;
+    V_HASCHARGECODE  := 'N';
+    V_HASORDERINGUOM  := 'N';
+    V_HASIMPLANT := 'N';
+    V_HASBIOLOGICALIMPLANT := 'N';
+
+    FOR I IN (SELECT *  FROM TABLE(GEN_CATALOGPRODUCTS(P_CATALOG_PRODUCTS_LIST))) LOOP
+          V_LINEERRORCODE := 0;
+          BEGIN
+          SELECT IDE.INTERFACEDEVICEID INTO V_DEVICEID
+            FROM INTERFACEDEVICEENDPOINT IDE
+            INNER JOIN INTERFACEDEVICE I on IDE.INTERFACEDEVICEID = I.INTERFACEDEVICEID
+            WHERE IDE.ENDPOINTID = P_ENDPOINTID
+            AND I.INTERFACEDEVICETYPE = 'ItemMasterIntegrator'
+            AND I.STATUS = 'ACTIVE';
+
+            IF V_DEVICEID IS NOT NULL THEN
+              SELECT 
+              DECODE(BITAND(IND.INTERFACEDEVICEFLAG, 4),4,'Y','N'),
+              DECODE(BITAND(IND.INTERFACEDEVICEFLAG, 8),8,'Y','N'),
+              DECODE(BITAND(IND.INTERFACEDEVICEFLAG, 2),2,'Y','N') ,
+              DECODE(BITAND(IND.INTERFACEDEVICEFLAG, 2048),2048,'Y','N') 
+              INTO V_HASORDERINGUOM,V_HASCHARGECODE,V_HASIMPLANT,V_HASBIOLOGICALIMPLANT
+              FROM INTERFACEDEVICE IND
+              WHERE IND.INTERFACEDEVICEID = V_DEVICEID;
+            END IF;
+            EXCEPTION
+              WHEN NO_DATA_FOUND THEN
+                V_HASCHARGECODE  := 'N';
+                V_HASORDERINGUOM  := 'N';
+                V_HASIMPLANT := 'N';
+                V_HASBIOLOGICALIMPLANT := 'N';
+          END;
+          BEGIN
+            SELECT  WMENCLOSEDPRODUCTID,WMORDERINGPRODUCTID,WMSUPPLIERTYPE,WMDISTRIBUTORID,MMSVENDORID,
+                    ITEMDESCRIPTION,PRODUCTCATEGORY,IMPLANTFLG,CONSIGNMENTFLG, HPI.ORDERINGPRODUCTUOM,HPI.EMSCHARGENUMBER,
+                    HPI.GLACCOUNTMAJOR,HPI.GLACCOUNTMINOR,HPI.HDSITEMNUMBER,HPI.WMORDERINGENDPOINTID,HPI.MMSSUPPLYLOCATIONID,HPI.BIOLOGICALIMPLANTFLG,
+                    DECODE(NVL2(ORDERINGPRODUCTCOST,WM_CRYPT_PKG.GET_PRICES_DEC_VAL(ORDERINGPRODUCTCOST, P_IDNPricingKey, P_PRICE_IV),0),0,NULL,
+                    (SELECT WM_CRYPT_PKG.GET_ENC_VAL( (WM_CRYPT_PKG.GET_PRICES_DEC_VAL(ORDERINGPRODUCTCOST, P_IDNPricingKey, P_PRICE_IV)/HPI.ENCLOSEDQTY),
+                            P.PRICINGKEY, P_PRICE_IV)
+                     FROM HOSPITALDEPTPRICINGKEYTEMP P
+                     WHERE P.ENDPOINTIDHOSPITALDEPT = P_ENDPOINTID AND P.PRICINGKEY IS NOT NULL)
+                     )
+             INTO V_PRODUCTID, V_WMORDERINGPRODUCTID,V_WMSUPPLIERTYPE,V_WMDISTRIBUTORID, V_MMSVENDORID,
+              V_ITEMDESCRIPTION, V_PRODUCTCATEGORY , V_IMPLANTFLG, V_CONSIGNMENTFLG, V_MMSORDERINGPRODUCTUOM ,V_EMSCHARGENUMBER,
+              V_GLACCOUNTMAJOR,V_GLACCOUNTMINOR,V_HDSITEMNUMBER,V_ORDERINGENDPOINTID,V_MMSSUPPLYLOCATIONID,V_BIOLOGICALIMPLANTFLG,V_ORDERINGPRODUCTCOST
+              FROM HOSPITALPRODUCTINTEGRATOR HPI
+             WHERE INTERFACEDEVICEID = I.INTERFACEDEVICEID
+             AND MMSLOCATIONID = I.MMSLOCATIONID
+             AND MMSITEMNUMBER = I.MMSITEMNUMBER
+             AND WMSTATUS = 'ACTIVE';
+
+          EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+              V_PRODUCTID := NULL;
+
+            P_ERRORCODE := 1;
+            V_LINEERRORCODE := 1;
+            IF P_ERRORLINES IS NULL THEN
+              P_ERRORLINES := I.ROWNO;
+            ELSE
+              P_ERRORLINES := P_ERRORLINES || ',' || I.ROWNO;
+            END IF;
+          END;
+        IF V_LINEERRORCODE = 0 THEN
+
+          SELECT PG.MFRID, PG.DIVISIONID, PG.PRODUCTGROUPID
+            INTO V_MFRID, V_DIVISIONID, V_PRODUCTGROUPID
+            FROM PRODUCT P
+           INNER JOIN PRODUCTGROUP PG  ON PG.PRODUCTGROUPID = P.PRODUCTGROUPID  AND PG.DIVISIONID = P.DIVISIONID  AND PG.MFRID = P.MFRID
+           WHERE P.PRODUCTID = V_PRODUCTID;
+
+          BEGIN
+            SELECT STATUS
+              INTO V_STATUS
+              FROM ENDPOINTPRODUCT
+             WHERE PRODUCTID = V_PRODUCTID
+               AND ENDPOINTID = P_ENDPOINTID;
+          EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+              V_STATUS := NULL;
+          END;
+
+          IF V_STATUS = 'DEACTIVATED' THEN
+
+            BEGIN
+              UPDATE ENDPOINTPRODUCT
+                 SET RFIDFLG                = I.RFIDFLG,
+                     ONHOLDFLG              = 'N',
+                     IMPLANTREGISTRATIONFLG  = (CASE WHEN ( (V_HASBIOLOGICALIMPLANT = 'Y' AND BIOLOGICALIMPLANTFLG = 'Y' ) OR( V_HASIMPLANT='Y' AND IMPLANTFLG = 'Y')  AND MMSLOCATIONID IS NOT NULL) THEN IMPLANTREGISTRATIONFLG ELSE NVL(I.IMPLANTREGISTRATIONFLG,IMPLANTREGISTRATIONFLG) END),
+                     MININVENTORYLEVEL      = I.MININVENTORYLEVEL,
+                     MAXINVENTORYLEVEL      = I.MAXINVENTORYLEVEL,
+                     CONSIGNEDPARLEVEL      = 0,
+                     STANDARDORDERQTY       = I.STANDARDORDERQTY,
+                     ORDERINGPRODUCTID      = NVL(V_WMORDERINGPRODUCTID,V_PRODUCTID),
+                     SUPPLIERTYPE           = NVL(V_WMSUPPLIERTYPE,SUPPLIERTYPE),
+                     MMSITEMNUMBER          = I.MMSITEMNUMBER,
+                     EMSCHARGENUMBER        = DECODE(V_HASCHARGECODE,'Y' ,V_EMSCHARGENUMBER,NVL(V_EMSCHARGENUMBER,I.EMSCHARGENUMBER)),
+                     CURRENTCOST            = NVL(V_ORDERINGPRODUCTCOST,I.CURRENTCOST),
+                     REQUESTINGLOCATION     = NULL,
+                     LASTUPDATEDDATE        = SYSDATE,
+                     LASTUPDATEDBY          = P_USERID,
+                     WMCOMMENT              = 'Updated using dept Add product upload Utility',
+                     STATUS                 = 'ACTIVE',
+                     EMERGENCYPARLEVEL      = I.EMERGENCYPARLEVEL,
+                     OPTIONALPARLEVEL       = I.OPTIONALPARLEVEL,
+                     TEMPORARYPARLEVEL      = I.TEMPORARYPARLEVEL,
+                     RESTOCKPARLEVEL        = I.RESTOCKPARLEVEL,
+                     LEADTIME               = I.LEADTIME,
+                     ORDERINGINTERVALDAYS   = I.ORDERINTERVAL,
+                     HDSITEMNUMBER           = NVL(V_HDSITEMNUMBER,I.HDSITEMNUMBER),
+                     ENDPOINTPRODUCTNAME    = NVL(V_ITEMDESCRIPTION,I.ENDPOINTPRODUCTNAME),
+                     MMSLOCATIONID = NVL(I.MMSLOCATIONID,MMSLOCATIONID),
+                     DISTRIBUTORID = NVL(V_WMDISTRIBUTORID,DISTRIBUTORID),
+                     MMSVENDORID = NVL(V_MMSVENDORID,MMSVENDORID),
+                     ENDPOINTPRODUCTCATEGORY = NVL(V_PRODUCTCATEGORY,ENDPOINTPRODUCTCATEGORY),
+                     IMPLANTFLG              = (CASE WHEN ( (V_HASIMPLANT = 'Y' AND MMSLOCATIONID IS NOT NULL) OR (V_HASBIOLOGICALIMPLANT = 'Y' AND MMSLOCATIONID IS NOT NULL AND BIOLOGICALIMPLANTFLG = 'Y') ) THEN IMPLANTFLG ELSE NVL(I.IMPLANTFLG,IMPLANTFLG) END ),
+                     CONSIGNEDFLG = NVL(V_CONSIGNMENTFLG,CONSIGNEDFLG),
+                     MMSOrderingProductUOM = DECODE(V_HASORDERINGUOM,'Y' ,V_MMSORDERINGPRODUCTUOM,NVL(V_MMSORDERINGPRODUCTUOM,I.MMSOrderingProductUOM)),
+                     GLACCOUNTMAJOR = NVL(V_GLACCOUNTMAJOR,GLACCOUNTMAJOR),
+                     GLACCOUNTMINOR = NVL (V_GLACCOUNTMINOR,GLACCOUNTMINOR),
+                     ORDERINGENDPOINTID = NVL (V_ORDERINGENDPOINTID,ORDERINGENDPOINTID) ,
+					 MMSSUPPLYLOCATIONID = NVL(V_MMSSUPPLYLOCATIONID,MMSSUPPLYLOCATIONID),
+                     BIOLOGICALIMPLANTFLG    = (CASE WHEN ( (V_HASBIOLOGICALIMPLANT = 'Y' AND MMSLOCATIONID IS NOT NULL) OR (V_HASIMPLANT = 'Y' AND MMSLOCATIONID IS NOT NULL AND IMPLANTFLG = 'Y') ) THEN BIOLOGICALIMPLANTFLG ELSE NVL(I.BIOLOGICALIMPLANTFLG,BIOLOGICALIMPLANTFLG) END)
+               WHERE PRODUCTID = V_PRODUCTID
+                 AND ENDPOINTID = P_ENDPOINTID;
+
+            EXCEPTION
+              WHEN OTHERS THEN
+                ERRORMESSAGE := SUBSTR(SQLERRM, 0, 1024);
+
+                P_ERRORLINES := I.ROWNO;
+                P_ERRORCODE  := 2;
+                V_LINEERRORCODE := 2;
+                EXIT;
+
+            END;
+
+          ELSIF V_STATUS IS NULL THEN
+
+            BEGIN
+
+              BEGIN
+                SELECT STATUS
+                  INTO V_PRODGROUPSTATUS
+                  FROM ENDPOINTPRODUCTGROUP
+                 WHERE ENDPOINTID = P_ENDPOINTID
+                   AND MFRID = V_MFRID
+                   AND DIVISIONID = V_DIVISIONID
+                   AND PRODUCTGROUPID = V_PRODUCTGROUPID;
+              EXCEPTION
+                WHEN NO_DATA_FOUND THEN
+                  V_PRODGROUPSTATUS := NULL;
+              END;
+              IF V_PRODGROUPSTATUS = 'DEACTIVATED' THEN
+                BEGIN
+                  UPDATE ENDPOINTPRODUCTGROUP
+                     SET CONSIGNEDFLG        = 'N',
+                         CONSIGNEDPARLEVEL   = 0,
+                         METAGROUPFLG        = 'N',
+                         METAGROUPID         = NULL,
+                         METAGROUPNAME       = NULL,
+                         WMCOMMENT           = 'Updated Using dept Add product upload Utility',
+                         STATUS              = 'ACTIVE',
+                         LASTUPDATEDDATE     = SYSDATE,
+                         LASTUPDATEDBY       = P_USERID,
+                         METAGROUPMFRID      = NULL,
+                         METAGROUPDIVISIONID = NULL
+                   WHERE ENDPOINTID = P_ENDPOINTID
+                     AND MFRID = V_MFRID
+                     AND DIVISIONID = V_DIVISIONID
+                     AND PRODUCTGROUPID = V_PRODUCTGROUPID;
+
+                EXCEPTION
+                  WHEN OTHERS THEN
+                    ERRORMESSAGE := SUBSTR(SQLERRM, 0, 1024);
+                    P_ERRORLINES := I.ROWNO;
+
+                    P_ERRORCODE := 2;
+                    V_LINEERRORCODE := 2;
+                    EXIT;
+
+                END;
+              ELSIF V_PRODGROUPSTATUS IS NULL THEN
+
+                BEGIN
+                  INSERT INTO ENDPOINTPRODUCTGROUP (ENDPOINTID,MFRID,DIVISIONID,PRODUCTGROUPID,CONSIGNEDFLG,CONSIGNEDPARLEVEL,
+                     METAGROUPFLG,METAGROUPID,METAGROUPNAME,WMCOMMENT,STATUS,LASTUPDATEDDATE,LASTUPDATEDBY,METAGROUPMFRID,METAGROUPDIVISIONID)
+                  VALUES
+                    (P_ENDPOINTID,V_MFRID,V_DIVISIONID,V_PRODUCTGROUPID,'N',0,
+                     'N',NULL,NULL,'Inserted Using dept Add product upload Utility','ACTIVE',SYSDATE,P_USERID,NULL,NULL);
+
+                EXCEPTION
+                  WHEN OTHERS THEN
+                    ERRORMESSAGE := SUBSTR(SQLERRM, 0, 1024);
+                    P_ERRORLINES := I.ROWNO;
+                    P_ERRORCODE := 2;
+                    V_LINEERRORCODE := 2;
+                    EXIT;
+
+                END;
+
+              END IF;
+
+			  /*When inserting, the Charge Code always looks for value from HPI, if not found, it uses user's value
+				Meanwhile, ImplantFlg and BiologicalImplantFlg always look for values from the user in the case there is no
+				Flag enterprise controlled with a Y value in the HPI, otherwise, the user can set a flag to Y.
+				This is a disperency in the workflow between Charge Code and implant Flags, needed for the workflow of the upload tool and the flags.
+			  */
+              INSERT INTO ENDPOINTPRODUCT(PRODUCTID,ENDPOINTID,RFIDFLG,ONHOLDFLG,IMPLANTREGISTRATIONFLG,MININVENTORYLEVEL,
+                 MAXINVENTORYLEVEL,CONSIGNEDPARLEVEL,STANDARDORDERQTY,ORDERINGPRODUCTID,SUPPLIERTYPE,MMSITEMNUMBER,EMSCHARGENUMBER,
+                 CURRENTCOST,REQUESTINGLOCATION,LASTUPDATEDDATE,LASTUPDATEDBY,WMCOMMENT,STATUS,EMERGENCYPARLEVEL,OPTIONALPARLEVEL,
+                 TEMPORARYPARLEVEL,RESTOCKPARLEVEL,LEADTIME,ORDERINGINTERVALDAYS,HDSITEMNUMBER,ENDPOINTPRODUCTNAME,
+                 DISTRIBUTORID,MMSVENDORID,MMSLOCATIONID,ENDPOINTPRODUCTCATEGORY,IMPLANTFLG,CONSIGNEDFLG, MMSOrderingProductUOM,
+                 GLACCOUNTMAJOR,GLACCOUNTMINOR,ORDERINGENDPOINTID,MMSSUPPLYLOCATIONID,BIOLOGICALIMPLANTFLG)
+              VALUES
+                (V_PRODUCTID,P_ENDPOINTID,I.RFIDFLG,'N',(CASE WHEN ((V_HASBIOLOGICALIMPLANT = 'Y' AND I.BIOLOGICALIMPLANTFLG = 'Y') OR (V_HASIMPLANT = 'Y' AND I.IMPLANTFLG = 'Y')) THEN CAST ('N' AS NVARCHAR2(1)) ELSE NVL(I.IMPLANTREGISTRATIONFLG,'N') END),I.MININVENTORYLEVEL,
+                 I.MAXINVENTORYLEVEL,0,I.STANDARDORDERQTY,NVL(V_WMORDERINGPRODUCTID,V_PRODUCTID),NVL(V_WMSUPPLIERTYPE,'Manufacturer'),I.MMSITEMNUMBER,DECODE(V_HASCHARGECODE,'Y' ,V_EMSCHARGENUMBER,NVL(V_EMSCHARGENUMBER,I.EMSCHARGENUMBER)),
+                 NVL(V_ORDERINGPRODUCTCOST,I.CURRENTCOST),NULL,SYSDATE,P_USERID,'Inserted Using dept Add product upload Utility','ACTIVE',I.EMERGENCYPARLEVEL,I.OPTIONALPARLEVEL,
+                 I.TEMPORARYPARLEVEL,I.RESTOCKPARLEVEL,I.LEADTIME,I.ORDERINTERVAL,NVL(V_HDSITEMNUMBER,I.HDSITEMNUMBER),NVL(V_ITEMDESCRIPTION,I.ENDPOINTPRODUCTNAME),
+                 V_WMDISTRIBUTORID,V_MMSVENDORID,I.MMSLOCATIONID,V_PRODUCTCATEGORY,(CASE WHEN (V_HASIMPLANT = 'Y' OR (V_HASBIOLOGICALIMPLANT = 'Y' AND V_BIOLOGICALIMPLANTFLG = 'Y')) THEN V_IMPLANTFLG ELSE NVL(I.IMPLANTFLG,V_IMPLANTFLG) END),
+				 V_CONSIGNMENTFLG, DECODE(V_HASORDERINGUOM,'Y' ,V_MMSORDERINGPRODUCTUOM,NVL(V_MMSORDERINGPRODUCTUOM,I.MMSOrderingProductUOM)),
+                 V_GLACCOUNTMAJOR,V_GLACCOUNTMINOR,V_ORDERINGENDPOINTID,V_MMSSUPPLYLOCATIONID,
+				 (CASE WHEN (V_HASBIOLOGICALIMPLANT = 'Y' OR (V_HASIMPLANT = 'Y' AND V_IMPLANTFLG = 'Y') ) THEN V_BIOLOGICALIMPLANTFLG ELSE  NVL(I.BIOLOGICALIMPLANTFLG,V_BIOLOGICALIMPLANTFLG) END));
+
+            EXCEPTION
+              WHEN OTHERS THEN
+                ERRORMESSAGE := SUBSTR(SQLERRM, 0, 1024);
+                P_ERRORLINES := I.ROWNO;
+                P_ERRORCODE  := 2;
+                V_LINEERRORCODE := 2;
+                EXIT;
+            END;
+          END IF;
+        END IF;
+
+
+    END LOOP;
+
+  EXCEPTION
+    WHEN OTHERS THEN
+      /*ErrorMessage := SUBSTR(SQLERRM, 0, 1024);*/
+      P_ERRORCODE := 3;
+
+  END UpdateDeptEnterpriseCatalog;
+
+PROCEDURE UPDATEPRODUCTINVENTORY(P_ENDPOINTID IN NVARCHAR2,
+                                      P_USERID IN NVARCHAR2,
+                                      P_CABINETPRODUCTINVENTORY_LST IN CABINETPRODUCTINVENTORY_TAB,
+                                      P_OVERWRITEINV IN NVARCHAR2,
+                                      P_IDNPRICINGKEY IN NVARCHAR2,
+                                      P_PRICE_IV IN NVARCHAR2,
+                                      P_ERRORPRODUCTINFO OUT NVARCHAR2,
+                                      P_ERRORSPECIFYLOCATION OUT NVARCHAR2,
+                                      P_ERRORLOCATION OUT NVARCHAR2,
+                                      P_ERRORNULLLOCATION OUT NVARCHAR2,
+                                      P_ERRORHPI OUT NVARCHAR2,
+                                      P_PRODUCTEXISTS OUT NVARCHAR2,
+                                      P_PRODUCTNOTFOUND OUT NVARCHAR2,
+                                      P_CABINETNOTFOUND OUT NVARCHAR2,
+                                      P_ERRORCODE OUT NUMBER)  as
+
+V_PRODUCTID NVARCHAR2(20);
+V_NBOFROWS NUMBER;
+V_INVENTORYROWS NUMBER;
+V_INVENTORYROWS2 NUMBER;
+V_CABINETEXIST NUMBER;
+V_SECONDCABINET NVARCHAR2(10);
+V_DEVICEID NVARCHAR2(10);
+V_HASCHARGECODE  NVARCHAR2(1);
+V_HASORDERINGUOM  NVARCHAR2(1);
+V_NBOFMMSLCATIONID NUMBER;
+V_MMSLOCATIONID NVARCHAR2(20);
+V_NBOFMATCHEDLOCATION NUMBER;
+V_NBOFDUPLICATEMMSLOCATION NUMBER;
+
+V_STATUS          NVARCHAR2(20);
+V_PRODGROUPSTATUS NVARCHAR2(20);
+V_MFRID           NVARCHAR2(10);
+V_DIVISIONID      NVARCHAR2(10);
+V_PRODUCTGROUPID  NVARCHAR2(10);
+V_WMORDERINGPRODUCTID NVARCHAR2(20);
+V_WMSUPPLIERTYPE NVARCHAR2(20);
+V_WMDISTRIBUTORID NVARCHAR2(10);
+V_MMSVENDORID NVARCHAR2(20);
+V_ITEMDESCRIPTION NVARCHAR2(100);
+V_PRODUCTCATEGORY NVARCHAR2(100);
+V_IMPLANTFLG NVARCHAR2(1);
+V_CONSIGNMENTFLG NVARCHAR2(1);
+V_ORDERINGPRODUCTCOST NVARCHAR2(100);
+V_MMSORDERINGPRODUCTUOM NVARCHAR2(2);
+V_EMSCHARGENUMBER nvarchar2(32);
+V_GLACCOUNTMAJOR  NVARCHAR2(10);
+V_GLACCOUNTMINOR  NVARCHAR2(10);
+V_HDSITEMNUMBER  NVARCHAR2(50);
+V_CNTDEPTLOCATIONS  NUMBER;
+V_ORDERINGENDPOINTID  NVARCHAR2(20);
+V_TRACKINGTYPE NVARCHAR2(1);
+V_MMSSUPPLYLOCATIONID  NVARCHAR2(20);
+
+/*
+  * Possible errorCode:
+  *  0 : No error occurred
+  *  1 : Product info doesn't match sent info
+  *  2 : Error while inserting in catalog from HPI
+  *  3 : An unexpected error occurred while executing the procedure
+  */
+
+/*
+  * Possible errors:
+  *  P_ERRORPRODUCTINFO : more than 1 mmslocation matches the sent mmslocation - more than 1 record found with same mmslocation and the sent mmslocation is null - no product found in the hpi table OR NO MATCHING LOCATION TO THE SENT MMSLOCATION
+  *  P_ERRORSPECIFYLOCATION : 1 record found with mmslocation and the sent mmslocation is null - more than 1 locations matched between enterprise and dept - duplicate match -
+  *  P_ERRORLOCATION : the sent mmslocation and the db mmslocation don't match
+  *  P_ERRORNULLLOCATION : more than 1 record found in db with null mmslocation and the sent mmslocation is null
+  *  P_ERRORHPI : error during insert the product into the catalog
+  *  P_PRODUCTEXISTS : inventory record exists
+  *  P_PRODUCTNOTFOUND : product not found in catalog nor the enterprise catalog
+  *  P_CABINETNOTFOUND : no cabinet found
+  */
+
+BEGIN
+
+
+SELECT I.INTERFACEDEVICEID INTO V_DEVICEID
+FROM INTERFACEDEVICEENDPOINT IDE
+INNER JOIN INTERFACEDEVICE I ON IDE.INTERFACEDEVICEID = I.INTERFACEDEVICEID AND I.INTERFACEDEVICETYPE = 'ItemMasterIntegrator'
+WHERE IDE.ENDPOINTID = P_ENDPOINTID;
+
+FOR I IN (SELECT * FROM TABLE(GEN_CABINETPRODUCTINVENTORY(P_CABINETPRODUCTINVENTORY_LST))) LOOP
+  V_NBOFROWS := 0;
+  V_NBOFMMSLCATIONID := 0;
+  V_NBOFMATCHEDLOCATION := 0;
+  P_ERRORCODE := 0;
+  V_CNTDEPTLOCATIONS :=0;
+-- loop over the product info and check if itemmaster exists in catalog
+    FOR J IN (SELECT PRODUCTID, MMSITEMNUMBER, MMSLOCATIONID , COUNT(DISTINCT MMSLOCATIONID) OVER(PARTITION BY MMSITEMNUMBER) AS NBOFDUPLICATEMMSLOCATION
+              FROM ENDPOINTPRODUCT EPP
+              WHERE EPP.ENDPOINTID = P_ENDPOINTID
+              AND EPP.MMSITEMNUMBER = I.MMSITEMNUMBER
+              AND EPP.STATUS = 'ACTIVE') LOOP
+      V_NBOFROWS := V_NBOFROWS + 1;
+      V_NBOFDUPLICATEMMSLOCATION := J.NBOFDUPLICATEMMSLOCATION;
+      IF J.MMSLOCATIONID IS NOT NULL THEN
+        V_NBOFMMSLCATIONID := V_NBOFMMSLCATIONID + 1;
+        IF I.MMSLOCATIONID IS NOT NULL THEN
+          IF J.MMSLOCATIONID = I.MMSLOCATIONID THEN
+            V_PRODUCTID := J.PRODUCTID;
+            V_NBOFMATCHEDLOCATION := V_NBOFMATCHEDLOCATION + 1;
+          END IF;
+        END IF;
+      ELSIF I.MMSLOCATIONID IS NULL AND SQL%ROWCOUNT = 1 THEN
+        V_PRODUCTID := J.PRODUCTID;
+      END IF;
+
+    END LOOP;
+
+    IF V_NBOFROWS > 0 THEN --itemmaster found in catalog
+    --sent mmslocation and the db mmslocations don't match
+    IF I.MMSLOCATIONID IS NOT NULL THEN
+      IF V_NBOFMATCHEDLOCATION = 0 AND V_NBOFROWS = 1 THEN -- NO matched location found IN endpointproduct
+              P_ERRORCODE := 1;
+              IF P_ERRORLOCATION IS NULL THEN
+                P_ERRORLOCATION := I.ROWNO;
+                ELSE
+                  P_ERRORLOCATION := P_ERRORLOCATION || ',' || I.ROWNO; --the sent mmslocation and the db mmslocation don't match
+              END IF;
+        ELSIF V_NBOFMATCHEDLOCATION > 1 THEN
+          V_PRODUCTID := NULL;
+          P_ERRORCODE := 1;
+          IF P_ERRORPRODUCTINFO IS NULL THEN
+            P_ERRORPRODUCTINFO := I.ROWNO;
+            ELSE
+              P_ERRORPRODUCTINFO := P_ERRORPRODUCTINFO || ',' || I.ROWNO; -- more than 1 mmslocation matchs the sent mmslocation
+          END IF;
+        END IF;
+    ELSE  -- mmslocation is not sent
+       IF  V_NBOFROWS > 1 THEN --more than one itemmaster in catalog
+          IF V_NBOFMMSLCATIONID = 0 THEN --no mmslocation in catalog
+            P_ERRORCODE := 1;
+            IF P_ERRORNULLLOCATION IS NULL THEN
+              P_ERRORNULLLOCATION := I.ROWNO;
+              ELSE
+                P_ERRORNULLLOCATION := P_ERRORNULLLOCATION || ',' || I.ROWNO; -- more than 1 record found in db with null mmslocation and the sent mmslocation is null
+            END IF;
+          ELSE
+                IF V_NBOFDUPLICATEMMSLOCATION = 1 THEN
+                  P_ERRORCODE := 1;
+                  IF P_ERRORPRODUCTINFO IS NULL THEN
+                    P_ERRORPRODUCTINFO := I.ROWNO;
+                  ELSE
+                    P_ERRORPRODUCTINFO := P_ERRORPRODUCTINFO || ',' || I.ROWNO; -- more than 1 record found with same mmslocation and the sent mmslocation is null
+                  END IF;
+                ELSE
+                  P_ERRORCODE := 1;
+                  IF P_ERRORSPECIFYLOCATION IS NULL THEN
+                    P_ERRORSPECIFYLOCATION := I.ROWNO;
+                  ELSE
+                    P_ERRORSPECIFYLOCATION := P_ERRORSPECIFYLOCATION || ',' || I.ROWNO;
+                  END IF;
+              END IF;
+          END IF;
+
+     ELSIF V_NBOFROWS = 1 THEN -- 1 record found in catalog and db mmslocationid is filled
+          IF V_NBOFMMSLCATIONID > 0  THEN
+              P_ERRORCODE := 1;
+              IF P_ERRORSPECIFYLOCATION IS NULL THEN
+                P_ERRORSPECIFYLOCATION := I.ROWNO;
+                ELSE
+                  P_ERRORSPECIFYLOCATION := P_ERRORSPECIFYLOCATION || ',' || I.ROWNO; -- 1 record found with mmslocation and the sent mmslocation is null
+              END IF;
+          END IF;
+    END IF;
+ END IF;
+
+  ELSE -- no product was found in the department catalog, we're gonna search on the HPI table
+
+      V_HASCHARGECODE  := 'N';
+      V_HASORDERINGUOM  := 'N';
+
+
+      FOR L IN (SELECT WMENCLOSEDPRODUCTID AS PRODUCTID, MMSITEMNUMBER, MMSLOCATIONID FROM HOSPITALPRODUCTINTEGRATOR WHERE INTERFACEDEVICEID =  V_DEVICEID AND MMSITEMNUMBER = I.MMSITEMNUMBER AND WMSTATUS = 'ACTIVE') LOOP
+        V_NBOFROWS := V_NBOFROWS + 1;
+        
+        IF I.MMSLOCATIONID IS NOT NULL THEN
+          IF I.MMSLOCATIONID = L.MMSLOCATIONID THEN -- THIS IS THE RECORD I WANT TO ADD TO MY CATALOG
+            
+            SELECT Count(ATTRIBUTEVALUE) INTO V_CNTDEPTLOCATIONS 
+            FROM ENDPOINTATTRIBUTEVALUES 
+            WHERE ENDPOINTID = P_ENDPOINTID 
+            AND GENERICATTRIBUTEID = 'MMSLocationID'
+            AND ATTRIBUTEVALUE = I.MMSLOCATIONID;
+            
+            IF V_CNTDEPTLOCATIONS = 0 THEN
+              P_ERRORCODE := 1;
+              IF P_ERRORLOCATION IS NULL THEN
+                P_ERRORLOCATION := I.ROWNO;
+                ELSE
+                  P_ERRORLOCATION := P_ERRORLOCATION || ',' || I.ROWNO;
+              END IF;
+            ELSE
+              V_PRODUCTID := L.PRODUCTID;
+              V_MMSLOCATIONID := L.MMSLOCATIONID;
+             END IF;
+          END IF;
+        ELSE -- the sent mmslocation is null, check if the dep mmslocations matchs
+          FOR M IN (SELECT ATTRIBUTEVALUE FROM ENDPOINTATTRIBUTEVALUES WHERE ENDPOINTID = P_ENDPOINTID AND GENERICATTRIBUTEID = 'MMSLocationID') LOOP
+            IF L.MMSLOCATIONID = M.ATTRIBUTEVALUE THEN
+              V_PRODUCTID := L.PRODUCTID;
+              V_NBOFMATCHEDLOCATION := V_NBOFMATCHEDLOCATION + 1;
+              V_MMSLOCATIONID := L.MMSLOCATIONID;
+            END IF;
+          END LOOP;
+        END IF;
+      END LOOP;
+
+
+      IF V_NBOFMATCHEDLOCATION > 1 THEN -- more than 1 locations matched between enterprise and dept - duplicate match
+        P_ERRORCODE := 1;
+        V_MMSLOCATIONID := NULL;
+        V_PRODUCTID := NULL;
+
+        IF P_ERRORSPECIFYLOCATION IS NULL THEN
+          P_ERRORSPECIFYLOCATION := I.ROWNO;
+          ELSE
+            P_ERRORSPECIFYLOCATION := P_ERRORSPECIFYLOCATION || ',' || I.ROWNO;
+        END IF;
+      END IF;
+
+      IF (V_NBOFROWS = 0 OR V_PRODUCTID IS NULL ) THEN -- no product found in the hpi table OR NO MATCHING LOCATION TO THE SENT MMSLOCATION
+        P_ERRORCODE := 1;
+        IF P_PRODUCTNOTFOUND IS NULL THEN
+          P_PRODUCTNOTFOUND := I.ROWNO;
+          ELSE
+            P_PRODUCTNOTFOUND := P_PRODUCTNOTFOUND || ',' || I.ROWNO;
+        END IF;
+      END IF;
+
+
+      IF V_PRODUCTID IS NOT NULL THEN -- the product found in the hpi table, going to add it to the department catalog using the UpdateDeptEnterpriseCatalog logic
+
+      begin
+          IF V_DEVICEID IS NOT NULL THEN
+            SELECT DECODE(BITAND(IND.INTERFACEDEVICEFLAG, 4),4,'Y','N') AS HASORDERINGUOM,DECODE(BITAND(IND.INTERFACEDEVICEFLAG, 8),8,'Y','N') AS HASCHARGECODE
+            INTO V_HASORDERINGUOM,V_HASCHARGECODE
+            FROM INTERFACEDEVICE IND
+            WHERE IND.INTERFACEDEVICEID = V_DEVICEID;
+          END IF;
+        EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+          V_HASCHARGECODE  := 'N';
+          V_HASORDERINGUOM  := 'N';
+        end;
+
+
+          SELECT WMORDERINGPRODUCTID,WMSUPPLIERTYPE,WMDISTRIBUTORID,MMSVENDORID,
+          ITEMDESCRIPTION,PRODUCTCATEGORY,IMPLANTFLG,CONSIGNMENTFLG,HPI.ORDERINGPRODUCTUOM,HPI.EMSCHARGENUMBER,
+          HPI.GLACCOUNTMAJOR,HPI.GLACCOUNTMINOR,HPI.HDSITEMNUMBER,HPI.WMORDERINGENDPOINTID,HPI.MMSSUPPLYLOCATIONID,
+          DECODE(NVL2(ORDERINGPRODUCTCOST,WM_CRYPT_PKG.GET_PRICES_DEC_VAL(ORDERINGPRODUCTCOST, P_IDNPricingKey, P_PRICE_IV),0),0,NULL,
+          (SELECT WM_CRYPT_PKG.GET_ENC_VAL( (WM_CRYPT_PKG.GET_PRICES_DEC_VAL(ORDERINGPRODUCTCOST, P_IDNPricingKey, P_PRICE_IV)/HPI.ENCLOSEDQTY),
+                  P.PRICINGKEY, P_PRICE_IV)
+           FROM HOSPITALDEPTPRICINGKEYTEMP P
+           WHERE P.ENDPOINTIDHOSPITALDEPT = P_ENDPOINTID AND P.PRICINGKEY IS NOT NULL)
+           )
+          INTO V_WMORDERINGPRODUCTID,V_WMSUPPLIERTYPE,V_WMDISTRIBUTORID, V_MMSVENDORID,
+          V_ITEMDESCRIPTION, V_PRODUCTCATEGORY , V_IMPLANTFLG, V_CONSIGNMENTFLG, V_MMSORDERINGPRODUCTUOM ,V_EMSCHARGENUMBER,
+          V_GLACCOUNTMAJOR,V_GLACCOUNTMINOR,V_HDSITEMNUMBER,V_ORDERINGENDPOINTID,V_MMSSUPPLYLOCATIONID,V_ORDERINGPRODUCTCOST
+          FROM HOSPITALPRODUCTINTEGRATOR HPI
+          WHERE HPI.INTERFACEDEVICEID = V_DEVICEID
+          AND HPI.MMSITEMNUMBER = I.MMSITEMNUMBER
+          AND HPI.MMSLOCATIONID = V_MMSLOCATIONID
+          AND HPI.WMSTATUS = 'ACTIVE';
+
+        SELECT P.MFRID, P.DIVISIONID, P.PRODUCTGROUPID
+        INTO V_MFRID, V_DIVISIONID, V_PRODUCTGROUPID
+        FROM PRODUCT P
+        WHERE P.PRODUCTID = V_PRODUCTID;
+              
+        BEGIN
+          SELECT 
+          DECODE((BITAND (2, C. CabinetFlag)), 2, 'N','Y') INTO V_TRACKINGTYPE
+          FROM Cabinet C
+          WHERE C.cabinetid=I.Cabinetid;
+        END;
+
+        BEGIN
+          SELECT STATUS INTO V_STATUS
+          FROM ENDPOINTPRODUCT
+          WHERE PRODUCTID = V_PRODUCTID
+          AND ENDPOINTID = P_ENDPOINTID;
+        EXCEPTION WHEN NO_DATA_FOUND THEN
+          V_STATUS := NULL;
+        END;
+
+        IF V_STATUS = 'DEACTIVATED' THEN
+
+          BEGIN
+            UPDATE ENDPOINTPRODUCT
+               SET RFIDFLG                = V_TRACKINGTYPE,
+                   ONHOLDFLG              = 'N',
+                   IMPLANTREGISTRATIONFLG = 'N',
+                   MININVENTORYLEVEL      = MININVENTORYLEVEL,
+                   MAXINVENTORYLEVEL      = MAXINVENTORYLEVEL,
+                   CONSIGNEDPARLEVEL      = 0,
+                   STANDARDORDERQTY       = STANDARDORDERQTY,
+                   ORDERINGPRODUCTID      = NVL(V_WMORDERINGPRODUCTID,V_PRODUCTID),
+                   SUPPLIERTYPE           = NVL(V_WMSUPPLIERTYPE,SUPPLIERTYPE),
+                   MMSITEMNUMBER          = I.MMSITEMNUMBER,
+                   EMSCHARGENUMBER        = DECODE(V_HASCHARGECODE,'Y' ,V_EMSCHARGENUMBER,NVL(V_EMSCHARGENUMBER,EMSCHARGENUMBER)),
+                   CURRENTCOST            = NVL(V_ORDERINGPRODUCTCOST,CURRENTCOST),
+                   REQUESTINGLOCATION     = NULL,
+                   LASTUPDATEDDATE        = SYSDATE,
+                   LASTUPDATEDBY          = P_USERID,
+                   WMCOMMENT              = 'Updated using barcode location upload Utility',
+                   STATUS                 = 'ACTIVE',
+                   HDSITEMNUMBER           = NVL(V_HDSITEMNUMBER,HDSITEMNUMBER),
+                   ENDPOINTPRODUCTNAME    = NVL(V_ITEMDESCRIPTION,ENDPOINTPRODUCTNAME),
+                   MMSLOCATIONID = NVL(V_MMSLOCATIONID,MMSLOCATIONID),
+                   DISTRIBUTORID = NVL(V_WMDISTRIBUTORID,DISTRIBUTORID),
+                   MMSVENDORID = NVL(V_MMSVENDORID,MMSVENDORID),
+                   ENDPOINTPRODUCTCATEGORY = NVL(V_PRODUCTCATEGORY,ENDPOINTPRODUCTCATEGORY),
+                   IMPLANTFLG = NVL(V_IMPLANTFLG,IMPLANTFLG),
+                   CONSIGNEDFLG = NVL(V_CONSIGNMENTFLG,CONSIGNEDFLG),
+                   MMSOrderingProductUOM = DECODE(V_HASORDERINGUOM,'Y' ,V_MMSORDERINGPRODUCTUOM,NVL(V_MMSORDERINGPRODUCTUOM,MMSOrderingProductUOM)),
+                   GLACCOUNTMAJOR = NVL(V_GLACCOUNTMAJOR,GLACCOUNTMAJOR),
+                   GLACCOUNTMINOR = NVL (V_GLACCOUNTMINOR,GLACCOUNTMINOR),
+                   ORDERINGENDPOINTID = NVL (V_ORDERINGENDPOINTID,ORDERINGENDPOINTID),
+				   MMSSUPPLYLOCATIONID = NVL(V_MMSSUPPLYLOCATIONID,MMSSUPPLYLOCATIONID)
+             WHERE PRODUCTID = V_PRODUCTID
+               AND ENDPOINTID = P_ENDPOINTID;
+
+            EXCEPTION
+              WHEN OTHERS THEN
+                P_ERRORHPI := I.ROWNO;
+                P_ERRORCODE  := 2;
+                EXIT;
+
+            END;
+
+        ELSIF V_STATUS IS NULL THEN
+
+          BEGIN
+
+            BEGIN
+              SELECT STATUS
+                INTO V_PRODGROUPSTATUS
+                FROM ENDPOINTPRODUCTGROUP
+               WHERE ENDPOINTID = P_ENDPOINTID
+                 AND MFRID = V_MFRID
+                 AND DIVISIONID = V_DIVISIONID
+                 AND PRODUCTGROUPID = V_PRODUCTGROUPID;
+              EXCEPTION
+                WHEN NO_DATA_FOUND THEN
+                  V_PRODGROUPSTATUS := NULL;
+              END;
+              IF V_PRODGROUPSTATUS = 'DEACTIVATED' THEN
+                BEGIN
+                  UPDATE ENDPOINTPRODUCTGROUP
+                     SET CONSIGNEDFLG        = 'N',
+                         CONSIGNEDPARLEVEL   = 0,
+                         METAGROUPFLG        = 'N',
+                         METAGROUPID         = NULL,
+                         METAGROUPNAME       = NULL,
+                         WMCOMMENT           = 'Updated using barcode location upload Utility',
+                         STATUS              = 'ACTIVE',
+                         LASTUPDATEDDATE     = SYSDATE,
+                         LASTUPDATEDBY       = P_USERID,
+                         METAGROUPMFRID      = NULL,
+                         METAGROUPDIVISIONID = NULL
+                   WHERE ENDPOINTID = P_ENDPOINTID
+                     AND MFRID = V_MFRID
+                     AND DIVISIONID = V_DIVISIONID
+                     AND PRODUCTGROUPID = V_PRODUCTGROUPID;
+
+                EXCEPTION
+                  WHEN OTHERS THEN
+                    P_ERRORHPI := I.ROWNO;
+                    P_ERRORCODE := 2;
+                    EXIT;
+
+                END;
+              ELSIF V_PRODGROUPSTATUS IS NULL THEN
+
+                BEGIN
+                  INSERT INTO ENDPOINTPRODUCTGROUP(ENDPOINTID,MFRID,DIVISIONID,PRODUCTGROUPID,CONSIGNEDFLG,CONSIGNEDPARLEVEL,
+                     METAGROUPFLG,METAGROUPID,METAGROUPNAME,WMCOMMENT,STATUS,LASTUPDATEDDATE,LASTUPDATEDBY,METAGROUPMFRID,METAGROUPDIVISIONID)
+                  VALUES
+                    (P_ENDPOINTID,V_MFRID,V_DIVISIONID,V_PRODUCTGROUPID,'N',0,
+                     'N',NULL,NULL,'Inserted using barcode location upload Utility','ACTIVE',SYSDATE,P_USERID,NULL,NULL);
+
+                EXCEPTION
+                  WHEN OTHERS THEN
+                    P_ERRORHPI := I.ROWNO;
+                    P_ERRORCODE := 2;
+                    EXIT;
+
+                END;
+
+              END IF;
+              
+              INSERT INTO ENDPOINTPRODUCT( PRODUCTID,ENDPOINTID,RFIDFLG,ONHOLDFLG,IMPLANTREGISTRATIONFLG,
+                                           CONSIGNEDPARLEVEL,ORDERINGPRODUCTID,SUPPLIERTYPE,MMSITEMNUMBER,EMSCHARGENUMBER,
+                                           CURRENTCOST,REQUESTINGLOCATION,LASTUPDATEDDATE,LASTUPDATEDBY,WMCOMMENT,STATUS,
+                                           HDSITEMNUMBER,ENDPOINTPRODUCTNAME,
+                                           DISTRIBUTORID,MMSVENDORID,MMSLOCATIONID,ENDPOINTPRODUCTCATEGORY,IMPLANTFLG,CONSIGNEDFLG, MMSOrderingProductUOM,
+                                           GLACCOUNTMAJOR,GLACCOUNTMINOR,ORDERINGENDPOINTID,MMSSUPPLYLOCATIONID)
+              VALUES
+                (V_PRODUCTID,P_ENDPOINTID,V_TRACKINGTYPE,'N','N',0,NVL(V_WMORDERINGPRODUCTID,V_PRODUCTID),
+                 NVL(V_WMSUPPLIERTYPE,'Manufacturer'),I.MMSITEMNUMBER,V_EMSCHARGENUMBER,
+                 V_ORDERINGPRODUCTCOST,NULL,SYSDATE,P_USERID,'Inserted using barcode location upload Utility','ACTIVE',
+                 V_HDSITEMNUMBER,V_ITEMDESCRIPTION,V_WMDISTRIBUTORID,V_MMSVENDORID,
+                 V_MMSLOCATIONID,V_PRODUCTCATEGORY,V_IMPLANTFLG,V_CONSIGNMENTFLG, V_MMSORDERINGPRODUCTUOM,
+                 V_GLACCOUNTMAJOR,V_GLACCOUNTMINOR,V_ORDERINGENDPOINTID,V_MMSSUPPLYLOCATIONID);
+
+              
+              
+            EXCEPTION
+              WHEN OTHERS THEN
+                P_ERRORHPI := I.ROWNO;
+                P_ERRORCODE  := 2;
+                EXIT;
+            END;
+          END IF;
+        END IF;
+      END IF;
+
+---------------Adding product to product inventory------------
+  V_INVENTORYROWS := 0;
+  V_INVENTORYROWS2 := 0;
+  V_CABINETEXIST := 0;
+
+  IF V_PRODUCTID IS NOT NULL AND P_ERRORCODE = 0 THEN -- product was found, going to create inventory record for it
+      SELECT COUNT(1) INTO V_CABINETEXIST FROM CABINET WHERE CABINETID = I.CABINETID AND ENDPOINTID = P_ENDPOINTID AND STATUS = 'ACTIVE' ;
+
+      IF V_CABINETEXIST = 1 THEN
+      SELECT COUNT(1) INTO V_INVENTORYROWS
+      FROM PRODUCTINVENTORY
+      WHERE PRODUCTID = V_PRODUCTID
+      AND CABINETID = I.CABINETID; --check if the product inventory found in the sent cabinet
+
+      IF V_INVENTORYROWS = 0 THEN -- check if product is found in another cabinet in the same room
+      BEGIN
+        SELECT MAX(C2.CABINETID) INTO V_SECONDCABINET
+        FROM CABINET C
+        INNER JOIN CABINET C2 ON C.ENDPOINTID = C2.ENDPOINTID AND C.ROOMID = C2.ROOMID
+        WHERE C.CABINETID = I.CABINETID ;
+      EXCEPTION WHEN NO_DATA_FOUND THEN
+        V_SECONDCABINET := NULL;
+      END;
+
+      IF V_SECONDCABINET IS NOT NULL THEN
+        SELECT COUNT(1) INTO V_INVENTORYROWS2
+        FROM PRODUCTINVENTORY PI
+        WHERE PI.PRODUCTID = V_PRODUCTID
+        AND PI.CABINETID = V_SECONDCABINET; -- check if the product inventory found in another cabinet
+      END IF;
+     END IF;
+
+    IF V_INVENTORYROWS = 0 AND V_INVENTORYROWS2 = 0 THEN
+        INSERT INTO PRODUCTINVENTORY(PRODUCTID, ENDPOINTID, INVENTORYLEVEL, WMCOMMENT, STATUS, CABINETID, LOCATIONCODE,LASTUPDATEDDATE,LASTUPDATEDBY)
+        VALUES(V_PRODUCTID,P_ENDPOINTID,NVL(I.INVENTORYLEVEL,0),'Inserted using barcode location upload Utility', 'ACTIVE', I.CABINETID,I.LOCATIONCODE,SYSDATE,P_USERID);
+    ELSE
+          IF P_OVERWRITEINV = 'Y' THEN -- user has ability to overwrite the inventory
+            IF V_INVENTORYROWS = 0 AND V_INVENTORYROWS2 > 0 THEN
+              UPDATE PRODUCTINVENTORY SET INVENTORYLEVEL = NVL(I.INVENTORYLEVEL,INVENTORYLEVEL) , LOCATIONCODE = I.LOCATIONCODE,LASTUPDATEDDATE = SYSDATE, LASTUPDATEDBY = P_USERID, WMCOMMENT = 'Updated using barcode location upload Utility'
+              WHERE  PRODUCTID = V_PRODUCTID
+              AND CABINETID = V_SECONDCABINET;
+            ELSE
+                UPDATE PRODUCTINVENTORY SET INVENTORYLEVEL = NVL(I.INVENTORYLEVEL,INVENTORYLEVEL), LOCATIONCODE = I.LOCATIONCODE,LASTUPDATEDDATE = SYSDATE, LASTUPDATEDBY = P_USERID, WMCOMMENT = 'Updated using barcode location upload Utility'
+                WHERE PRODUCTID = V_PRODUCTID
+                AND CABINETID = I.CABINETID;
+            END IF;
+            ELSE
+              P_ERRORCODE := 1;
+              IF P_PRODUCTEXISTS IS NULL THEN
+              P_PRODUCTEXISTS := I.ROWNO;
+                ELSE
+                  P_PRODUCTEXISTS := P_PRODUCTEXISTS || ',' || I.ROWNO;
+              END IF;
+          END IF;
+    END IF;
+
+    ELSE
+      P_ERRORCODE  := 1;
+      IF P_CABINETNOTFOUND IS NULL THEN
+        P_CABINETNOTFOUND := I.ROWNO;
+      ELSE
+        P_CABINETNOTFOUND := P_CABINETNOTFOUND || ',' || I.ROWNO;
+      END IF;
+    END IF;
+
+    ELSE IF V_PRODUCTID IS NULL AND P_ERRORCODE = 0 THEN
+      P_ERRORCODE  := 1;
+      IF P_PRODUCTNOTFOUND IS NULL THEN
+        P_PRODUCTNOTFOUND := I.ROWNO;
+      ELSE
+        P_PRODUCTNOTFOUND := P_PRODUCTNOTFOUND || ',' || I.ROWNO;
+      END IF;
+   END IF;
+     END IF;
+
+END LOOP;
+
+  EXCEPTION WHEN OTHERS THEN
+     P_ERRORCODE := 3;
+END UPDATEPRODUCTINVENTORY;
+
+END HD_SETUP_PKG;
+/
+SHOW ERROR
+/
